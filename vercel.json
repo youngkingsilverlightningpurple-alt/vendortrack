@@ -6,7 +6,7 @@
   "installCommand": "npm ci",
   "devCommand": "npm run dev",
 
-  "regions": ["iad1", "sfo1"],
+  "regions": ["iad1"],
 
   "headers": [
     {
@@ -35,7 +35,7 @@
   "crons": [
     {
       "path": "/api/cron/cache-warming",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/reconciliation",
@@ -43,7 +43,7 @@
     },
     {
       "path": "/api/cron/health-check",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 4 * * *"
     }
   ]
 }
