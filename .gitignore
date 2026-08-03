@@ -1,0 +1,84 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# ============================================================
+# DEPENDENCIES
+# ============================================================
+/node_modules
+/.pnp
+.pnp.js
+.pnp.loader.mjs
+/coverage
+
+# ============================================================
+# BUILD OUTPUT
+# ============================================================
+/.next/
+/out/
+
+# ============================================================
+# ENVIRONMENT FILES & SECRETS
+# NEVER commit any file containing real credentials.
+# Only .env.example (with empty placeholders) is tracked.
+# ============================================================
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# ============================================================
+# CREDENTIALS & CERTIFICATES
+# ============================================================
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+id_ecdsa*
+*.ppk
+
+# ============================================================
+# IDEs AND EDITORS
+# ============================================================
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.vscode/
+
+# ============================================================
+# VERCEL
+# ============================================================
+.vercel
+
+# ============================================================
+# MISC
+# ============================================================
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+apphosting.yaml
+
+# ============================================================
+# SECURITY SCANNING ARTIFACTS
+# ============================================================
+.gitleaks-report.json
+trufflehog-results.json
+
+# ============================================================
+# DEBUG & LOGS
+# ============================================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

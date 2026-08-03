@@ -1,0 +1,69 @@
+#!/usr/bin/env sh
+#
+# VendorTrack Pre-Commit Hook
+# Runs secret scanning, linting, and type checking before every commit.
+#
+# This hook prevents commits that:
+# 1. Contain secrets or credentials (via Gitleaks)
+# 2. Fail ESLint checks
+# 3. Have TypeScript type errors
+#
+
+echo ""
+echo "🔍 VendorTrack Pre-Commit Checks"
+echo "=================================="
+echo ""
+
+# ---- 1. Secret Scanning with Gitleaks ----
+echo "🔎 [1/3] Scanning for secrets..."
+
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks detect --no-git --config=.gitleaks.toml -v --redact 2>/dev/null; then
+    echo ""
+    echo "❌ BLOCKED: Secrets detected in staged files!"
+    echo "   Remove all hardcoded credentials and use environment variables instead."
+    echo "   See .env.example for required variables."
+    echo ""
+    exit 1
+  fi
+  echo "✅ No secrets detected"
+else
+  echo "⚠️  Gitleaks not installed — skipping secret scan"
+  echo "   Install: brew install gitleaks (macOS) or see https://github.com/gitleaks/gitleaks"
+fi
+
+# ---- 2. ESLint ----
+echo "🧹 [2/3] Running ESLint..."
+
+if [ -f "node_modules/.bin/eslint" ] || [ -f "node_modules/.bin/next" ]; then
+  npx next lint --quiet 2>/dev/null
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ BLOCKED: ESLint found errors. Fix them before committing."
+    echo ""
+    exit 1
+  fi
+  echo "✅ ESLint passed"
+else
+  echo "⚠️  node_modules not found — skipping ESLint"
+fi
+
+# ---- 3. TypeScript Type Check ----
+echo "🔧 [3/3] Running TypeScript type check..."
+
+if [ -f "node_modules/.bin/tsc" ]; then
+  npx tsc --noEmit 2>/dev/null
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ BLOCKED: TypeScript type errors found. Fix them before committing."
+    echo ""
+    exit 1
+  fi
+  echo "✅ TypeScript check passed"
+else
+  echo "⚠️  node_modules not found — skipping TypeScript check"
+fi
+
+echo ""
+echo "✅ All pre-commit checks passed!"
+echo ""

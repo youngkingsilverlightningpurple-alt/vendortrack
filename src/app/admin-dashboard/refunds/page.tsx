@@ -1,0 +1,253 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import AuthenticatedLayout from '@/components/layout/authenticated-layout';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from '@/components/ui/card';
+import { useSupabase } from '@/components/providers/supabase-provider';
+import type { Order, OrderRow } from '@/types';
+import { orderRowToDomain, getErrorMessage } from '@/types';
+import { createLogger } from '@/lib/logger';
+import { formatCurrency } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
+import { AlertCircle, CheckCircle2, XCircle, Loader2, Info, ShieldCheck } from 'lucide-react';
+import { processRefundDecision } from '@/app/actions/admin-actions';
+
+const log = createLogger('admin-refunds');
+
+const PAGE_SIZE = 20;
+
+export default function AdminRefundsPage() {
+  const { supabase } = useSupabase();
+  const { toast } = useToast();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const fetchRefundRequests = async (pageToFetch: number = 0) => {
+    const loadingSetter = pageToFetch > 0 ? setIsLoadingMore : setIsLoading;
+    loadingSetter(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('refund_status', 'requested')
+        .order('created_at', { ascending: false })
+        .range(pageToFetch * PAGE_SIZE, (pageToFetch + 1) * PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      const refundList = (data || []).map(o => orderRowToDomain(o as OrderRow));
+
+      setOrders(prev => pageToFetch > 0 ? [...prev, ...refundList] : refundList);
+      setPage(pageToFetch);
+
+      if (refundList.length < PAGE_SIZE) {
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+      }
+    } catch (error: unknown) {
+      log.error("Failed to fetch refund requests:", undefined, error);
+      toast({
+        variant: "destructive",
+        title: "Fetch failed",
+        description: "Could not load pending disputes."
+      });
+    } finally {
+      loadingSetter(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRefundRequests(0);
+  }, []);
+
+  const handleProcessRefund = async (orderId: string, decision: 'approved' | 'rejected') => {
+    setProcessingId(orderId);
+    try {
+      // ENTERPRISE: Use the server action which calls Stripe Refund API
+      // No refund may exist in the database unless Stripe confirms it.
+      const result = await processRefundDecision(orderId, decision);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      if (decision === 'approved' && 'stripeRefundId' in result && result.stripeRefundId) {
+        toast({
+          title: "Refund Approved & Processed",
+          description: `Stripe refund ${result.stripeRefundId} created for $${((result.refundAmount || 0) / 100).toFixed(2)}. Trace: ${result.traceId}`,
+        });
+      } else if (decision === 'approved') {
+        toast({
+          title: "Refund Approved",
+          description: `The request for Order #${orderId.substring(0, 7)} has been processed.`,
+        });
+      } else {
+        toast({
+          title: "Refund Rejected",
+          description: `The request for Order #${orderId.substring(0, 7)} has been rejected.`,
+        });
+      }
+
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+    } catch (error: unknown) {
+      log.error("Refund processing failed:", undefined, error);
+      toast({
+        variant: "destructive",
+        title: "Process Failed",
+        description: getErrorMessage(error) || "Could not complete refund action. The Stripe API may be unavailable.",
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  return (
+    <AuthenticatedLayout>
+      <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight text-primary">Refund Management</h1>
+            <p className="text-sm text-muted-foreground">Review and resolve buyer-initiated refund claims. Approvals trigger Stripe reversals automatically.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => fetchRefundRequests(0)} disabled={isLoading}>
+            Refresh Requests
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
+          <ShieldCheck className="h-4 w-4 text-green-600" />
+          <p className="text-xs text-green-700">
+            <strong>Enterprise Refund Processing:</strong> All approved refunds now call the Stripe Refund API before updating the database.
+            No refund may exist in the database unless Stripe confirms it.
+          </p>
+        </div>
+
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-amber-500" />
+                    Pending Disputes
+                </CardTitle>
+                <CardDescription>
+                    Review the reason for each claim. Approving a refund will automatically trigger a Stripe reversal and create a financial ledger entry.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                        <Skeleton className="h-12 w-full" />
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="rounded-md border overflow-hidden">
+                            <Table>
+                                <TableHeader className="bg-muted/50">
+                                    <TableRow>
+                                        <TableHead>Order Details</TableHead>
+                                        <TableHead>Amount</TableHead>
+                                        <TableHead>Buyer Reason</TableHead>
+                                        <TableHead>Date Requested</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {orders.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <CheckCircle2 className="h-8 w-8 text-green-500/50" />
+                                                    <p>All refund requests have been resolved.</p>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : orders.map((order) => (
+                                        <TableRow key={order.id} className="hover:bg-muted/30">
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-xs font-mono">#{order.id.substring(0, 7)}</span>
+                                                    <span className="text-sm font-semibold">{order.productName}</span>
+                                                    <span className="text-[10px] text-muted-foreground">Customer: {order.buyerName}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="font-bold text-primary">{formatCurrency((order.amountCents || 0) / 100)}</span>
+                                            </TableCell>
+                                            <TableCell className="max-w-xs">
+                                                <div className="flex items-start gap-2 bg-amber-50 p-2 rounded text-xs text-amber-900 italic border border-amber-100">
+                                                    <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                    "{order.refundReason}"
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-xs">
+                                                {order.createdAt ? format(new Date(order.createdAt), 'MMM d, yyyy') : 'N/A'}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-8 text-xs text-destructive hover:bg-destructive/10"
+                                                        onClick={() => handleProcessRefund(order.id, 'rejected')}
+                                                        disabled={!!processingId}
+                                                    >
+                                                        {processingId === order.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
+                                                        Reject
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                                        onClick={() => handleProcessRefund(order.id, 'approved')}
+                                                        disabled={!!processingId}
+                                                    >
+                                                        {processingId === order.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
+                                                        Approve & Refund
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        {hasMore && (
+                            <div className="flex justify-center pt-4">
+                                <Button onClick={() => fetchRefundRequests(page + 1)} disabled={isLoadingMore} variant="outline">
+                                    {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Load More Requests
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+      </div>
+    </AuthenticatedLayout>
+  );
+}

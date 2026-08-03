@@ -1,0 +1,111 @@
+# ============================================================
+# VendorTrack — Prometheus Alert Rules
+# ============================================================
+groups:
+  - name: vendortrack_app
+    rules:
+      - alert: VendorTrackAppDown
+        expr: up{job="vendortrack"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "VendorTrack application is down"
+          description: "The VendorTrack app has been unreachable for 2 minutes."
+
+      - alert: VendorTrackHighErrorRate
+        expr: vt_api_error_rate > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "API error rate above 5%"
+          description: "Current error rate is {{ $value | humanizePercentage }}."
+
+      - alert: VendorTrackHighLatency
+        expr: vt_api_latency_p95_ms > 500
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "API p95 latency above 500ms"
+          description: "Current p95 latency is {{ $value }}ms."
+
+      - alert: VendorTrackCriticalLatency
+        expr: vt_api_latency_p95_ms > 1000
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "API p95 latency above 1 second"
+          description: "Current p95 latency is {{ $value }}ms."
+
+      - alert: VendorTrackHighMemoryUsage
+        expr: vt_memory_heap_used_mb / vt_memory_rss_mb > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Memory usage above 90%"
+          description: "Heap usage is {{ $value | humanizePercentage }} of RSS."
+
+  - name: vendortrack_database
+    rules:
+      - alert: VendorTrackHighDBLatency
+        expr: vt_db_latency_p95_ms > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Database p95 latency above 100ms"
+          description: "Current p95 DB latency is {{ $value }}ms."
+
+      - alert: VendorTrackSlowQueries
+        expr: vt_db_slow_query_count > 10
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High number of slow queries detected"
+          description: "{{ $value }} slow queries in the last 10 minutes."
+
+  - name: vendortrack_cache
+    rules:
+      - alert: VendorTrackLowCacheHitRate
+        expr: vt_cache_hit_rate < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Cache hit rate below 50%"
+          description: "Current cache hit rate is {{ $value | humanizePercentage }}."
+
+  - name: vendortrack_queue
+    rules:
+      - alert: VendorTrackQueueBacklog
+        expr: vt_queue_pending > 1000
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Background job queue backlog exceeds 1000"
+          description: "{{ $value }} pending jobs in the queue."
+
+      - alert: VendorTrackDeadLetterQueueGrowing
+        expr: increase(vt_queue_dead[1h]) > 10
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Dead letter queue growing rapidly"
+          description: "{{ $value }} new dead letter jobs in the last hour."

@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "UserProfile": {
+      "properties": {
+        "isAdmin": { "type": "boolean" },
+        "isDemo": { "type": "boolean" },
+        "sellerStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "stripeConnected": { "type": "boolean" }
+      }
+    },
+    "Product": {
+      "properties": {
+        "stock": { "type": "number", "description": "Atomic stock count" }
+      }
+    },
+    "Order": {
+      "properties": {
+        "status": { "enum": ["pending", "shipped", "delivered", "refunded"] },
+        "refundStatus": { "enum": ["none", "requested", "approved", "rejected"] },
+        "paymentIntentId": { "type": "string" },
+        "involvedUsers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "PaymentSession": {
+      "description": "Server-side checkout session for price and inventory locking",
+      "properties": {
+        "status": { "enum": ["pending", "completed", "failed"] },
+        "amount": { "type": "number" },
+        "items": { "type": "array" }
+      }
+    },
+    "AuditLog": {
+      "description": "Immutable system events for financial and security auditing",
+      "properties": {
+        "severity": { "enum": ["INFO", "WARN", "CRITICAL"] },
+        "event": { "type": "string" }
+      }
+    }
+  }
+}

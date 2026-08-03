@@ -1,0 +1,78 @@
+# ============================================================
+# VendorTrack — Monitoring Stack (Docker Compose)
+# ============================================================
+# Deploys Prometheus + Grafana for observability.
+# Usage: docker compose -f docker-compose.monitoring.yml up -d
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ---- Prometheus ----
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: vendortrack-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - vendortrack-network
+
+  # ---- Grafana ----
+  grafana:
+    image: grafana/grafana:latest
+    container_name: vendortrack-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-vendortrack}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - vendortrack-network
+
+  # ---- Redis Exporter ----
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: vendortrack-redis-exporter
+    restart: unless-stopped
+    environment:
+      - REDIS_ADDR=redis:6379
+    ports:
+      - "9121:9121"
+    networks:
+      - vendortrack-network
+
+  # ---- Alertmanager ----
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: vendortrack-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    networks:
+      - vendortrack-network
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  vendortrack-network:
+    external: true

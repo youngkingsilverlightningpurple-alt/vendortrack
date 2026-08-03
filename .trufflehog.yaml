@@ -1,0 +1,19 @@
+# TruffleHog Configuration for VendorTrack
+# https://github.com/trufflesecurity/trufflehog
+#
+# This configuration is used by the pre-commit hook and CI/CD pipeline.
+# Run: trufflehog filesystem --config=.trufflehog.yaml .
+
+# Skip paths that are known safe
+skip_paths:
+  - "node_modules/"
+  - ".next/"
+  - "src/lib/env.ts"
+  - "src/lib/supabase.ts"
+  - "src/lib/supabase-admin.ts"
+  - ".env.example"
+  - ".gitleaks.toml"
+  - "SECURITY.md"
+
+# Only scan git-tracked files (not build artifacts)
+only_git_tracked: true

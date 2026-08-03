@@ -1,0 +1,74 @@
+# ============================================================
+# VendorTrack — Docker Ignore File
+# ============================================================
+# Reduces build context size and prevents sensitive files
+# from entering the Docker image.
+# ============================================================
+
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build outputs
+.next
+out
+dist
+build
+
+# Environment and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+__tests__
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+vitest.config.js
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Scripts
+scripts
+
+# Git
+.git
+.gitignore
+.gitleaks.toml
+
+# Misc
+.husky
+skills-lock.json

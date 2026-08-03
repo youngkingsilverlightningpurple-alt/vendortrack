@@ -1,0 +1,60 @@
+// ============================================================
+// VendorTrack — VS Code Dev Container Configuration
+// ============================================================
+{
+  "name": "VendorTrack Development",
+  "dockerComposeFile": [
+    "../docker-compose.dev.yml"
+  ],
+  "service": "app",
+  "workspaceFolder": "/app",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next",
+        "streetsidesoftware.code-spell-checker",
+        "GitHub.copilot",
+        "ms-azuretools.vscode-docker",
+        "cweijan.vscode-redis-client",
+        "GitHub.vscode-github-actions"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "tailwindCSS.includeLanguages": {
+          "typescript": "javascript",
+          "typescriptreact": "javascript"
+        }
+      }
+    }
+  },
+  "forwardPorts": [9002, 6379, 8081],
+  "portsAttributes": {
+    "9002": {
+      "label": "Next.js App",
+      "onAutoForward": "notify"
+    },
+    "6379": {
+      "label": "Redis",
+      "onAutoForward": "silent"
+    },
+    "8081": {
+      "label": "Redis Commander",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "npm ci",
+  "remoteUser": "node"
+}

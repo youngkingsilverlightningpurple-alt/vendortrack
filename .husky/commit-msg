@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+#
+# VendorTrack Commit Message Hook
+# Prevents commits that reference secrets in commit messages.
+#
+
+# Check commit message for potential secret patterns
+MSG=$(cat "$1")
+
+# Patterns that should never appear in commit messages
+SECRET_PATTERNS=(
+  "sk_live_[0-9a-zA-Z]"
+  "sk_test_[0-9a-zA-Z]"
+  "whsec_[0-9a-zA-Z]"
+  "AIza[0-9A-Za-z]"
+  "eyJ[a-zA-Z0-9_-]{20,}"
+  "password\s*[:=]"
+  "secret\s*[:=]"
+)
+
+for pattern in "${SECRET_PATTERNS[@]}"; do
+  if echo "$MSG" | grep -qE "$pattern" 2>/dev/null; then
+    echo "❌ BLOCKED: Commit message may contain a secret. Remove it and try again."
+    exit 1
+  fi
+done

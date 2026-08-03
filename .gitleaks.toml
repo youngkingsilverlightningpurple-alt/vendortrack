@@ -1,0 +1,78 @@
+# Gitleaks Configuration for VendorTrack
+# https://github.com/gitleaks/gitleaks
+#
+# This configuration extends the default rules and adds
+# VendorTrack-specific patterns for Stripe, Supabase, and Gemini.
+
+[extend]
+# Use the default Gitleaks rules as a base
+useDefault = true
+
+# Custom rules for VendorTrack-specific secrets
+[[rules]]
+id = "stripe-secret-key-vendortrack"
+description = "Stripe Secret Key (sk_test_ or sk_live_)"
+regex = '''sk_(test|live)_[0-9a-zA-Z]{24,}'''
+tags = ["key", "stripe", "payment"]
+severity = "CRITICAL"
+
+[[rules]]
+id = "stripe-publishable-key-vendortrack"
+description = "Stripe Publishable Key (pk_test_ or pk_live_)"
+regex = '''pk_(test|live)_[0-9a-zA-Z]{24,}'''
+tags = ["key", "stripe"]
+severity = "MEDIUM"
+
+[[rules]]
+id = "stripe-webhook-secret"
+description = "Stripe Webhook Signing Secret"
+regex = '''whsec_[0-9a-zA-Z]{24,}'''
+tags = ["key", "stripe", "webhook"]
+severity = "CRITICAL"
+
+[[rules]]
+id = "supabase-service-role-key"
+description = "Supabase Service Role Key (bypasses RLS)"
+regex = '''eyJ[a-zA-Z0-9_-]{20,}\.eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}'''
+tags = ["key", "supabase", "admin"]
+severity = "CRITICAL"
+
+[[rules]]
+id = "supabase-anon-key"
+description = "Supabase Anon Key"
+regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJ[a-zA-Z0-9_-]+'''
+tags = ["key", "supabase"]
+severity = "MEDIUM"
+
+[[rules]]
+id = "gemini-api-key"
+description = "Google Gemini API Key"
+regex = '''AIza[0-9A-Za-z\-_]{35}'''
+tags = ["key", "google", "ai"]
+severity = "HIGH"
+
+[[rules]]
+id = "firebase-project-id"
+description = "Firebase Project ID (information disclosure)"
+regex = '''firebaseProjectId["\s:]+["'][a-z0-9-]+["']'''
+tags = ["key", "firebase", "info"]
+severity = "LOW"
+
+# Allowlist — paths that should NOT trigger alerts
+[allowlist]
+paths = [
+    '''^\.env\.example$''',
+    '''^\.gitleaks\.toml$''',
+    '''^SECURITY\.md$''',
+    '''^docs/.*$''',
+]
+description = "Global allow list — .env.example and documentation are safe"
+
+# Allowlist for specific known-safe patterns
+[[allowlist]]
+paths = [
+    '''^src/lib/supabase\.ts$''',
+    '''^src/lib/supabase-admin\.ts$''',
+    '''^src/lib/env\.ts$''',
+]
+description = "Code files that reference env vars by name (not value) are safe"

@@ -1,0 +1,70 @@
+# ============================================================
+# VendorTrack — Development Container Configuration
+# ============================================================
+# Usage: Open in VS Code with Dev Containers extension
+# or: docker compose -f docker-compose.dev.yml up
+# ============================================================
+
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: vendortrack-dev
+    ports:
+      - "9002:9002"
+      - "9229:9229"  # Node.js debugger
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=debug
+      - NEXT_PUBLIC_LOG_LEVEL=debug
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - vendortrack-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: vendortrack-dev-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vendortrack-network
+
+  # Redis Commander — Web UI for Redis inspection
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: vendortrack-redis-ui
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - vendortrack-network
+
+networks:
+  vendortrack-network:
+    driver: bridge

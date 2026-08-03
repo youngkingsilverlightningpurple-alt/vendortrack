@@ -1,0 +1,76 @@
+# ============================================================
+# VendorTrack — Scheduled Security & Performance Scans
+# ============================================================
+# Runs daily at 06:00 UTC
+# ============================================================
+
+name: Security & Performance Scan
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # Daily at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  # ---- Dependency Vulnerability Scan ----
+  dependency-scan:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit
+        run: npm audit --audit-level=moderate --omit=dev
+        continue-on-error: true
+
+      - name: Check for outdated dependencies
+        run: npm outdated || true
+
+  # ---- Secret Scanning ----
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks scan
+        run: |
+          docker run --rm -v $(pwd):/repo zricethezav/gitleaks:latest \
+            detect --source /repo --config /repo/.gitleaks.toml -v --redact \
+            --report-format json --report-path /repo/gitleaks-report.json || true
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          retention-days: 30
+
+  # ---- Production Health Check ----
+  production-health:
+    name: Production Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check health endpoint
+        run: |
+          STATUS=$(curl -sf https://vendortrack.app/api/health | jq -r '.status')
+          echo "Production status: $STATUS"
+          if [ "$STATUS" = "unhealthy" ]; then
+            echo "::warning::Production is unhealthy!"
+          fi
+
+      - name: Check performance metrics
+        run: |
+          curl -sf "https://vendortrack.app/api/performance?format=prometheus" > metrics.txt || true
+          cat metrics.txt || true
