@@ -316,13 +316,30 @@ export interface VirusScanner {
 }
 
 /**
- * Default no-op virus scanner.
- * Replace with a real implementation in production.
+ * Default virus scanner — logs a security warning in production.
+ * SECURITY: Replace with a real implementation (ClamAV, VirusTotal, etc.)
+ * before processing user file uploads in production.
  */
 export const defaultVirusScanner: VirusScanner = {
-  async scan() {
-    // No-op: always returns clean
-    // In production, integrate with ClamAV or similar
+  async scan(buffer: ArrayBuffer, filename: string) {
+    // SECURITY WARNING: This is a placeholder that does NOT actually scan files.
+    // In production, you MUST replace this with a real virus scanner:
+    //
+    // Example with ClamAV:
+    //   import { NodeClam } from 'clamscan';
+    //   const clamscan = await new NodeClam().init({ ... });
+    //   const { isInfected } = await clamscan.isInfected(buffer);
+    //   return { clean: !isInfected, virusName: isInfected ? 'ClamAV-detected' : undefined };
+    //
+    // Example with VirusTotal API:
+    //   const response = await fetch('https://www.virustotal.com/api/v3/files', { ... });
+    //
+    if (process.env.NODE_ENV === 'production') {
+      console.warn(
+        `[SECURITY] No virus scanner configured — file "${filename}" was NOT scanned. ` +
+        'Call setVirusScanner() with a real implementation before accepting user uploads.'
+      );
+    }
     return { clean: true };
   },
 };

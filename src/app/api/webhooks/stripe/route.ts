@@ -37,7 +37,7 @@ const MAX_EVENT_AGE_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function POST(req: Request) {
   const body = await req.text();
-  const signature = headers().get('stripe-signature')!;
+  const signature = (await headers()).get('stripe-signature')!;
   const stripe = getStripe();
 
   let event: Stripe.Event;
@@ -200,9 +200,11 @@ async function handlePaymentIntentSucceeded(
 
       await paymentSessionRepository.updateStatus(sessionId, 'failed');
 
+      // Derive order_id from payment intent metadata or lookup
+      const orderIdFromMeta = pi.metadata?.orderId || '';
       await createLedgerEntry({
         event_type: 'refund_completed',
-        order_id: '',
+        order_id: orderIdFromMeta,
         payment_intent_id: pi.id,
         stripe_refund_id: refund.id,
         amount_cents: pi.amount,
@@ -266,9 +268,11 @@ async function handleChargeRefunded(event: Stripe.Event, traceId: string) {
   });
 
   try {
+    // Derive order_id from charge's payment intent metadata
+    const orderIdFromCharge = (charge as any).metadata?.orderId || '';
     await createLedgerEntry({
       event_type: 'refund_completed',
-      order_id: '',
+      order_id: orderIdFromCharge,
       payment_intent_id: paymentIntentId,
       amount_cents: charge.amount_refunded,
       currency: charge.currency || 'usd',
@@ -302,9 +306,11 @@ async function handlePaymentIntentFailed(event: Stripe.Event, traceId: string) {
   }
 
   try {
+    // Derive order_id from payment intent metadata
+    const orderIdFromFailedPI = pi.metadata?.orderId || '';
     await createLedgerEntry({
       event_type: 'payment_created',
-      order_id: '',
+      order_id: orderIdFromFailedPI,
       payment_intent_id: pi.id,
       amount_cents: pi.amount,
       currency: pi.currency || 'usd',
@@ -336,9 +342,11 @@ async function handleDisputeCreated(event: Stripe.Event, traceId: string) {
   });
 
   try {
+    // Derive order_id from dispute's charge metadata
+    const orderIdFromDispute = (dispute.metadata as Record<string, string>)?.orderId || '';
     await createLedgerEntry({
       event_type: 'dispute',
-      order_id: '',
+      order_id: orderIdFromDispute,
       payment_intent_id: dispute.payment_intent as string || '',
       amount_cents: dispute.amount,
       currency: dispute.currency || 'usd',

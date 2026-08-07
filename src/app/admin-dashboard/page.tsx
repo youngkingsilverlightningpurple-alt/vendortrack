@@ -30,7 +30,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { fetchMarketplaceStats, type MarketplaceStats } from '@/lib/analytics-service';
+import { fetchMarketplaceStats, type MarketplaceStats } from '@/services/analytics-service';
 import { SystemHealthWidget } from '@/components/system-health-widget';
 import { Badge } from '@/components/ui/badge';
 import { PlatformRevenueChart } from '@/components/platform-revenue-chart';

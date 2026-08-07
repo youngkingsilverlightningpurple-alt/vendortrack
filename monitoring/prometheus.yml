@@ -17,6 +17,9 @@ scrape_configs:
     params:
       format: ['prometheus']
     scrape_interval: 30s
+    # Bearer token auth for scraping the performance endpoint
+    # Set PROMETHEUS_BEARER_TOKEN env var to match an admin JWT or service token
+    bearer_token: '${PROMETHEUS_BEARER_TOKEN}'
     static_configs:
       - targets:
           - 'app:9002'

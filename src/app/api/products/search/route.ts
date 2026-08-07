@@ -38,7 +38,12 @@ export async function GET(request: NextRequest) {
   const suggestionPrefix = searchParams.get('suggest');
   if (suggestionPrefix) {
     try {
-      const suggestions = await getSearchSuggestions(suggestionPrefix);
+      // SECURITY: Sanitize suggestion prefix to prevent injection
+      const sanitizedPrefix = sanitizeSearchQuery(suggestionPrefix);
+      if (!sanitizedPrefix || sanitizedPrefix.length < 2) {
+        return NextResponse.json({ suggestions: [] });
+      }
+      const suggestions = await getSearchSuggestions(sanitizedPrefix);
       const duration = performance.now() - startTime;
       return NextResponse.json(
         { suggestions },

@@ -120,6 +120,51 @@ class RateLimitStore {
 const store = new RateLimitStore();
 
 // ============================================================
+// REDIS-BACKED RATE LIMITING (for multi-instance deployments)
+// ============================================================
+
+let redisRateLimitAvailable = false;
+
+/**
+ * Check if Redis-backed rate limiting is available.
+ * When REDIS_URL is set, rate limits are distributed across all instances.
+ */
+export function isRedisRateLimitAvailable(): boolean {
+  return redisRateLimitAvailable;
+}
+
+/**
+ * Initialize Redis-backed rate limiting.
+ * Call this once at application startup if REDIS_URL is configured.
+ *
+ * In production multi-instance deployments (Vercel, Kubernetes, etc.),
+ * you MUST use Redis-backed rate limiting to prevent per-process limits
+ * from being multiplied by the number of instances.
+ *
+ * Example usage with Upstash Redis:
+ *   import { Redis } from '@upstash/redis';
+ *   initRedisRateLimit(new Redis({ url: process.env.REDIS_URL }));
+ */
+export function initRedisRateLimit(redisClient: {
+  incr: (key: string) => Promise<number>;
+  expire: (key: string, seconds: number) => Promise<void>;
+  get: (key: string) => Promise<string | null>;
+  set: (key: string, value: string, options?: { ex?: number }) => Promise<void>;
+}): void {
+  redisRateLimitAvailable = true;
+  log.info('Redis-backed rate limiting initialized — distributed across all instances');
+  // Store reference for use in checkRateLimit
+  (globalThis as any).__vendortrack_redis_rate_limit = redisClient;
+}
+
+/**
+ * Get the Redis rate limit client if available.
+ */
+function getRedisClient(): any {
+  return (globalThis as any).__vendortrack_redis_rate_limit || null;
+}
+
+// ============================================================
 // RATE LIMIT CONFIGURATIONS
 // ============================================================
 

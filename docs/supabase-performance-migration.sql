@@ -166,7 +166,7 @@ SELECT
   (SELECT count(*) FROM public.products WHERE status = 'active' AND deleted_at IS NULL) AS active_products,
   (SELECT count(*) FROM public.products WHERE deleted_at IS NULL) AS total_products,
   (SELECT count(*) FROM public.orders) AS total_orders,
-  (SELECT COALESCE(SUM(amount_cents), 0) FROM public.orders WHERE status = 'delivered') AS total_revenue_cents,
+  (SELECT COALESCE(SUM(amount_total_cents), 0) FROM public.orders WHERE status = 'delivered') AS total_revenue_cents,
   (SELECT COALESCE(SUM(commission_cents), 0) FROM public.orders WHERE status = 'delivered') AS total_commission_cents,
   NOW() AS computed_at;
 

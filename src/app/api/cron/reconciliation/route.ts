@@ -14,7 +14,8 @@ function verifyCronRequest(request: Request): boolean {
   if (process.env.CRON_SECRET) {
     return authHeader === `Bearer ${process.env.CRON_SECRET}`;
   }
-  return process.env.NODE_ENV !== 'production';
+    // SECURITY: Fail-closed — deny access when CRON_SECRET is not configured
+  return false;
 }
 
 export async function GET(request: Request) {

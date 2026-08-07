@@ -106,7 +106,7 @@ async function checkRedis(): Promise<HealthCheckResult> {
     return {
       status: 'healthy',
       latencyMs: Math.round(performance.now() - start),
-      details: `Redis configured at ${parsed.hostname}:${parsed.port}`,
+      details: 'Redis connection configured',
     };
   } catch (err) {
     return {
@@ -135,8 +135,9 @@ function checkMemory(): HealthCheckResult {
 }
 
 function checkEnvironment(): HealthCheckResult {
-  // All env vars are now optional for graceful degradation.
-  // The app runs in degraded mode if any are missing.
+  // SECURITY: Never expose env var names or values in the health response.
+  // An unauthenticated attacker could use this information for targeted attacks.
+  // We only report counts, never variable names.
   const allVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
@@ -149,25 +150,25 @@ function checkEnvironment(): HealthCheckResult {
     'SENTRY_DSN',
   ];
 
-  const missing = allVars.filter(key => !process.env[key]);
+  const missingCount = allVars.filter(key => !process.env[key]).length;
   const coreVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     'SUPABASE_SERVICE_ROLE_KEY',
   ];
-  const coreMissing = coreVars.filter(key => !process.env[key]);
+  const coreMissingCount = coreVars.filter(key => !process.env[key]).length;
 
-  if (coreMissing.length > 0) {
+  if (coreMissingCount > 0) {
     return {
       status: 'degraded',
-      error: `Missing core vars (degraded mode): ${coreMissing.join(', ')}`,
-      details: `All missing: ${missing.join(', ') || 'none'}`,
+      error: `Missing ${coreMissingCount} core configuration(s)`,
+      details: `${missingCount} total configuration(s) missing`,
     };
   }
 
   return {
-    status: missing.length > 3 ? 'degraded' : 'healthy',
-    details: `All core vars set. Optional missing: ${missing.join(', ') || 'none'}`,
+    status: missingCount > 3 ? 'degraded' : 'healthy',
+    details: `All core configs set. ${missingCount} optional config(s) missing`,
   };
 }
 

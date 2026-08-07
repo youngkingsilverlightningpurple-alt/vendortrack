@@ -23,12 +23,26 @@
  */
 
 // ============================================================
-// HTML SANITIZATION
+// HTML SANITIZATION — DOMPurify (primary) + regex fallback
 // ============================================================
+
+import DOMPurify from 'isomorphic-dompurify';
+
+/**
+ * DOMPurify configuration for the default safe allowlist.
+ */
+const DOMPURIFY_CONFIG: DOMPurify.Config = {
+  ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'code', 'pre', 'span', 'sub', 'sup'],
+  ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'id'],
+  ALLOW_DATA_ATTR: false,
+  FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'applet', 'form', 'input', 'style', 'svg', 'math'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+};
 
 /**
  * Dangerous HTML tags that must ALWAYS be stripped.
  * These can execute JavaScript or load external resources.
+ * (Used as fallback when DOMPurify is unavailable)
  */
 const DANGEROUS_TAGS = new Set([
   'script', 'iframe', 'object', 'embed', 'applet', 'form',
@@ -104,15 +118,30 @@ export function sanitizeHTML(
   if (!input || typeof input !== 'string') return '';
 
   const maxLen = options.maxLength ?? 10000;
-  if (input.length > maxLen) {
-    input = input.substring(0, maxLen);
+  const trimmedInput = input.length > maxLen ? input.substring(0, maxLen) : input;
+
+  // PRIMARY: Use DOMPurify for robust XSS protection
+  // DOMPurify handles all known XSS bypass vectors including malformed HTML,
+  // mXSS, DOM clobbering, and namespace attacks that regex cannot catch.
+  try {
+    const config = { ...DOMPURIFY_CONFIG };
+    if (options.allowedTags) {
+      config.ALLOWED_TAGS = Array.from(options.allowedTags);
+    }
+    if (options.allowedAttrs) {
+      config.ALLOWED_ATTR = Array.from(options.allowedAttrs);
+    }
+    return DOMPurify.sanitize(trimmedInput, config).trim();
+  } catch {
+    // FALLBACK: If DOMPurify fails (should never happen), use regex sanitizer
+    // This is less robust but prevents a total sanitization failure
   }
 
-  const allowedTags = options.allowedTags ?? ALLOWED_TAGS;
-  const allowedAttrs = options.allowedAttrs ?? ALLOWED_ATTRS;
+  // Regex-based fallback (see original implementation below)
+  let sanitized = trimmedInput;
 
   // Remove null bytes and control characters
-  let sanitized = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
   // Remove dangerous tags and their content
   for (const tag of DANGEROUS_TAGS) {

@@ -25,15 +25,22 @@ route:
 
 receivers:
   - name: 'default'
-    # Default notification channel
     webhook_configs:
       - url: 'http://app:9002/api/alerts/webhook'
+        # Send authorization header matching ALERTMANAGER_SECRET
+        http_config:
+          authorization:
+            type: 'Bearer'
+            credentials: '${ALERTMANAGER_SECRET}'
         send_resolved: true
 
   - name: 'critical'
-    # Critical alerts — PagerDuty, Slack, SMS
     webhook_configs:
       - url: 'http://app:9002/api/alerts/webhook'
+        http_config:
+          authorization:
+            type: 'Bearer'
+            credentials: '${ALERTMANAGER_SECRET}'
         send_resolved: true
     # Add Slack/PagerDuty integration here:
     # slack_configs:
@@ -41,7 +48,10 @@ receivers:
     #     channel: '#incidents-critical'
 
   - name: 'warning'
-    # Warning alerts — Slack only
     webhook_configs:
       - url: 'http://app:9002/api/alerts/webhook'
+        http_config:
+          authorization:
+            type: 'Bearer'
+            credentials: '${ALERTMANAGER_SECRET}'
         send_resolved: true
