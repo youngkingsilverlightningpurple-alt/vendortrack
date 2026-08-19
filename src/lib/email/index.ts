@@ -74,7 +74,10 @@ export interface SendEmailResult {
 // RESEND CLIENT (lazy-loaded)
 // ============================================================
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// Resend client is typed as `any` because the `resend` package is an
+// optional peer dependency — we cannot import its types without making
+// it a hard dependency. The client is lazily loaded via `require('resend')`
+// at runtime, and its type is checked at the call site.
 let _resendClient: any | null = null;
 let _resendInitialized = false;
 let _resendAvailable = false;
@@ -96,7 +99,6 @@ function getResendClient(): { available: true; client: NonNullable<typeof _resen
   try {
     // Dynamic require so the package is optional. If `resend` is not in
     // package.json, this throws and we mark email as unavailable.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
     const { Resend } = require('resend');
     _resendClient = new Resend(process.env.RESEND_API_KEY);
     _resendAvailable = true;
@@ -327,7 +329,6 @@ export async function sendEmail(request: SendEmailRequest): Promise<SendEmailRes
   try {
     const from = process.env.RESEND_FROM_EMAIL || 'VendorTrack <noreply@vendortrack.app>';
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await clientResult.client.emails.send({
       from,
       to: [to.email],
