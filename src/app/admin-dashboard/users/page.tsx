@@ -26,7 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldAlert, ShieldCheck, UserCheck, UserX, Clock, CheckCircle2, AlertCircle, Loader2, Zap, Trash2 } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, UserCheck, UserX, Clock, CheckCircle2, AlertCircle, Loader2, Zap } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +35,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { purgeAllUsers } from '@/lib/seed-service';
+// P0 FIX (war room): `purgeAllUsers` import removed — the "Purge All Users"
+// button has been removed from the admin UI (see comment in JSX below).
+// The server action remains in `src/lib/seed-service.ts` for programmatic
+// use, but is NOT exposed in the admin UI.
 
 const log = createLogger('admin-users');
 
@@ -48,7 +51,8 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isPurging, setIsPurging] = useState(false);
+  // P0 FIX (war room): `isPurging` state removed — the "Purge All Users"
+  // button has been removed from the admin UI.
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -99,33 +103,10 @@ export default function AdminUsersPage() {
     fetchUsers(0);
   }, []);
 
-  const handlePurgeUsers = async () => {
-    if (!user) return;
-    if (!confirm("CRITICAL ACTION: Are you sure you want to delete ALL registered users? This will remove every account except yours. This cannot be undone.")) return;
-
-    if (profile?.isDemo) {
-        toast({ title: "Demo Simulation", description: "Purge simulated." });
-        return;
-    }
-
-    setIsPurging(true);
-    try {
-      const deletedCount = await purgeAllUsers(user.id);
-      toast({
-        title: "Purge Complete",
-        description: `Successfully deleted ${deletedCount} user accounts.`,
-      });
-      fetchUsers(0);
-    } catch (error: unknown) {
-      toast({
-        variant: "destructive",
-        title: "Purge Failed",
-        description: getErrorMessage(error),
-      });
-    } finally {
-      setIsPurging(false);
-    }
-  };
+  // P0 FIX (war room): `handlePurgeUsers` function removed.
+  // The "Purge All Users" button has been removed from the admin UI.
+  // See the JSX comment in the return statement for the rationale.
+  // Mass user deletion is now a CLI/SQL-only operation.
 
   const toggleAdmin = async (userId: string, currentStatus: boolean) => {
     if (profile?.isDemo) {
@@ -195,16 +176,27 @@ export default function AdminUsersPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h1 className="text-3xl font-bold tracking-tight text-primary">Account Management</h1>
           <div className="flex items-center gap-2">
-            <Button 
-                variant="destructive" 
-                size="sm" 
-                className="bg-red-600 hover:bg-red-700"
-                onClick={handlePurgeUsers}
-                disabled={isPurging || isLoading}
-            >
-                {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                Purge All Users
-            </Button>
+            {/*
+              P0 FIX (war room): "Purge All Users" button REMOVED.
+
+              The audit identified this as a load-bearing liability:
+              - Red destructive button always visible in the page header
+              - Only protection was a native confirm() dialog
+              - One admin typo = mass user deletion (every account except admin's)
+              - No typed confirmation, no 2FA, no delay
+
+              Mass user deletion is a CLI/SQL-only operation. If you need
+              to purge the user table, run a SQL command directly:
+
+                DELETE FROM auth.users WHERE id != '<admin-user-id>';
+
+              (The `auth.users` cascade-deletes to `profiles` per the FK
+              constraint in supabase-schema.sql:9.)
+
+              The `purgeAllUsers` server action is retained in
+              `src/app/actions/admin-actions.ts` for programmatic use,
+              but it is NOT exposed in the admin UI.
+            */}
             <Button variant="outline" size="sm" onClick={() => fetchUsers(0)} disabled={isLoading}>
                 Refresh List
             </Button>

@@ -27,8 +27,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { AlertCircle, CheckCircle2, XCircle, Loader2, Info, ShieldCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle2, XCircle, Loader2, Info, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { processRefundDecision } from '@/app/actions/admin-actions';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const log = createLogger('admin-refunds');
 
@@ -43,6 +53,21 @@ export default function AdminRefundsPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  // P0 FIX (war room): confirmation modal state for "Approve & Refund".
+  // The audit identified that the previous implementation triggered a real
+  // Stripe refund (real money movement) on a single click with no
+  // confirmation. Now the admin must:
+  //   1. Open the modal (click "Approve & Refund")
+  //   2. See order ID, amount, buyer email
+  //   3. Type "REFUND" to confirm
+  //   4. Click "Confirm Refund" (button disabled until text matches)
+  const [refundConfirmation, setRefundConfirmation] = useState<{
+    orderId: string;
+    amount: number;
+    buyerEmail: string;
+    reason: string;
+  } | null>(null);
+  const [confirmationText, setConfirmationText] = useState('');
 
   const fetchRefundRequests = async (pageToFetch: number = 0) => {
     const loadingSetter = pageToFetch > 0 ? setIsLoadingMore : setIsLoading;
@@ -222,7 +247,18 @@ export default function AdminRefundsPage() {
                                                     <Button
                                                         size="sm"
                                                         className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                                        onClick={() => handleProcessRefund(order.id, 'approved')}
+                                                        // P0 FIX (war room): open confirmation modal instead of
+                                                        // immediately calling handleProcessRefund. Real money movement
+                                                        // must require typed confirmation.
+                                                        onClick={() => {
+                                                          setRefundConfirmation({
+                                                            orderId: order.id,
+                                                            amount: order.amountCents,
+                                                            buyerEmail: order.buyerName ?? 'unknown',
+                                                            reason: order.refundReason ?? '',
+                                                          });
+                                                          setConfirmationText('');
+                                                        }}
                                                         disabled={!!processingId}
                                                     >
                                                         {processingId === order.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
@@ -247,6 +283,105 @@ export default function AdminRefundsPage() {
                 )}
             </CardContent>
         </Card>
+
+        {/*
+          P0 FIX (war room): Refund confirmation modal.
+          Requires the admin to type "REFUND" to confirm before the
+          `processRefundDecision(orderId, 'approved')` server action is
+          called — which triggers a real Stripe refund.
+        */}
+        <Dialog
+          open={refundConfirmation !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setRefundConfirmation(null);
+              setConfirmationText('');
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Confirm Refund
+              </DialogTitle>
+              <DialogDescription>
+                This action will issue a real Stripe refund. The funds will be
+                debited from the seller's Stripe account and returned to the
+                buyer's original payment method. This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+
+            {refundConfirmation && (
+              <div className="space-y-3 py-2">
+                <div className="rounded-md border bg-muted/50 p-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Order ID:</span>
+                    <code className="font-mono text-xs">{refundConfirmation.orderId.substring(0, 8)}…</code>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Refund Amount:</span>
+                    <span className="font-semibold">{formatCurrency(refundConfirmation.amount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Customer:</span>
+                    <span className="font-mono text-xs">{refundConfirmation.buyerEmail}</span>
+                  </div>
+                  {refundConfirmation.reason && (
+                    <div className="pt-2 border-t">
+                      <span className="text-muted-foreground text-xs">Reason:</span>
+                      <p className="text-xs italic mt-1">"{refundConfirmation.reason}"</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-text" className="text-sm font-medium">
+                    Type <code className="font-mono font-bold">REFUND</code> to confirm:
+                  </Label>
+                  <Input
+                    id="confirm-text"
+                    value={confirmationText}
+                    onChange={(e) => setConfirmationText(e.target.value)}
+                    placeholder="REFUND"
+                    autoComplete="off"
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRefundConfirmation(null);
+                  setConfirmationText('');
+                }}
+                disabled={!!processingId}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700"
+                disabled={confirmationText !== 'REFUND' || !!processingId}
+                onClick={() => {
+                  if (!refundConfirmation) return;
+                  if (confirmationText !== 'REFUND') return;
+                  handleProcessRefund(refundConfirmation.orderId, 'approved');
+                  setRefundConfirmation(null);
+                  setConfirmationText('');
+                }}
+              >
+                {processingId === refundConfirmation?.orderId ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : null}
+                Confirm Refund
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AuthenticatedLayout>
   );

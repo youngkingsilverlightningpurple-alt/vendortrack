@@ -1,10 +1,39 @@
 'use server';
 
 /**
- * @fileOverview Seed Service — Admin Only
+ * @fileOverview Seed Service — Admin Only (Demo Data Generation)
  *
- * SECURITY: All seed operations now require admin authorization.
- * Regular users cannot purge data or seed the marketplace.
+ * P0 FIX (war room): this module was previously importable from production
+ * code (`src/app/admin-dashboard/page.tsx:37`) and could be triggered by an
+ * admin clicking an "Initialize System Data" button. The seed would then
+ * pollute the production financial ledger with 200 orders carrying FAKE
+ * Stripe IDs (`pi_${Math.random()...}`, `acct_${Math.random()...}`,
+ * `tr_${Math.random()...}`), which are indistinguishable from real
+ * transactions and would cause reconciliation to flag every seeded order
+ * as an orphan.
+ *
+ * Additional concern: the previous log message was
+ *   "Systems Seeding Complete. Operational state: BELIEVABLE."
+ * which implied intent to deceive observers (acquirers, auditors) into
+ * thinking the data was real.
+ *
+ * REMEDIATION:
+ *   1. All fake Stripe IDs now use a clearly-marked `TEST_` prefix so they
+ *      are immediately identifiable as seed data and can be filtered out
+ *      in reconciliation queries:
+ *        - `acct_TEST_<random>` (Stripe Connect account)
+ *        - `pi_TEST_<random>` (PaymentIntent)
+ *        - `tr_TEST_<random>` (trace ID)
+ *      Reconciliation queries can filter these out with
+ *      `WHERE payment_intent_id NOT LIKE 'pi_TEST_%'`.
+ *   2. The "BELIEVABLE" log message is replaced with an honest one.
+ *   3. Production guard: in production, seed operations are REJECTED unless
+ *      the operator explicitly sets `ALLOW_DEMO_SEED_IN_PRODUCTION=true`.
+ *      This is a defense-in-depth against accidental production contamination.
+ *
+ * SECURITY: All seed operations require admin authorization. Regular users
+ * cannot purge data or seed the marketplace. The "Purge All Users" button
+ * has been removed from the admin UI (see admin-dashboard/users/page.tsx).
  */
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
@@ -58,8 +87,30 @@ export async function seedMarketplaceData(adminId: string) {
     return { users: 0, products: 0, orders: 0 };
   }
 
+  // P0 FIX (war room): production guard.
+  // In production, seed operations are REJECTED unless the operator
+  // explicitly sets `ALLOW_DEMO_SEED_IN_PRODUCTION=true`. This is a
+  // defense-in-depth against accidental production contamination —
+  // even if an admin clicks "Initialize System Data" in production,
+  // the operation will be rejected without the explicit env var.
+  //
+  // In development / preview / test environments, seeding is allowed
+  // without the override.
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED_IN_PRODUCTION !== 'true') {
+    return {
+      users: 0,
+      products: 0,
+      orders: 0,
+      error: 'Demo seeding is disabled in production. Set ALLOW_DEMO_SEED_IN_PRODUCTION=true to override (NOT recommended for production databases).',
+    };
+  }
+
   const admin = getSupabaseAdmin();
-  console.log("Starting realistic systems initialization...");
+  // P0 FIX (war room): replaced the misleading "realistic systems
+  // initialization" message with an honest one. The previous message
+  // was "Starting realistic systems initialization..." which implied
+  // intent to deceive observers into thinking the data was real.
+  console.log('[SeedService] Starting DEMO data generation (admin-triggered). All fake Stripe IDs will be prefixed with TEST_ for identification.');
 
   // 1. Create Sellers
   const sellerProfiles = [];
@@ -73,7 +124,12 @@ export async function seedMarketplaceData(adminId: string) {
       stripe_connected: true,
       store_name: SELLER_NAMES[i],
       store_description: `Official ${SELLER_NAMES[i]} distribution hub. Specialists in high-performance ${CATEGORIES[i % 6]} and accessories.`,
-      stripe_account_id: `acct_${Math.random().toString(36).substr(2, 14)}`,
+      // P0 FIX (war room): TEST_ prefix so reconciliation queries can
+      // filter out seed data:
+      //   WHERE stripe_account_id NOT LIKE 'acct_TEST_%'
+      //   WHERE payment_intent_id NOT LIKE 'pi_TEST_%'
+      //   WHERE trace_id NOT LIKE 'tr_TEST_%'
+      stripe_account_id: `acct_TEST_${Math.random().toString(36).substr(2, 14)}`,
       created_at: new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString()
     });
   }
@@ -124,7 +180,7 @@ export async function seedMarketplaceData(adminId: string) {
     const quantity = Math.floor(Math.random() * 2) + 1;
     const totalCents = product.price_cents * quantity;
     const commissionCents = Math.round(totalCents * 0.10);
-    const traceId = `tr_${Math.random().toString(36).substr(2, 12)}`;
+    const traceId = `tr_TEST_${Math.random().toString(36).substr(2, 12)}`;
 
     let status = 'delivered';
     let refundStatus = 'none';
@@ -146,7 +202,7 @@ export async function seedMarketplaceData(adminId: string) {
       commission_cents: commissionCents,
       status: status,
       refund_status: refundStatus,
-      payment_intent_id: `pi_${Math.random().toString(36).substr(2, 14)}`,
+      payment_intent_id: `pi_TEST_${Math.random().toString(36).substr(2, 14)}`,
       trace_id: traceId,
       created_at: createdAt
     });
@@ -163,6 +219,10 @@ export async function seedMarketplaceData(adminId: string) {
   await ((admin.from('orders') as any) as any).insert(orders as any);
   await ((admin.from('audit_logs') as any) as any).insert(auditLogs as any);
 
-  console.log("Systems Seeding Complete. Operational state: BELIEVABLE.");
+  // P0 FIX (war room): replaced "Systems Seeding Complete. Operational
+  // state: BELIEVABLE." with an honest message. The previous "BELIEVABLE"
+  // language implied intent to deceive observers (acquirers, auditors)
+  // into thinking the data was real production data.
+  console.log('[SeedService] DEMO data generation complete. 63 demo users, 250 demo products, 200 demo orders inserted. All Stripe IDs prefixed with TEST_ for identification.');
   return { users: 63, products: 250, orders: 200 };
 }

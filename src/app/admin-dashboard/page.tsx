@@ -98,10 +98,22 @@ export default function AdminDashboardPage() {
     if (!user) return;
     setIsSeeding(true);
     try {
-      await seedMarketplaceData(user.id);
+      // P0 FIX (war room): handle the production-guard return value.
+      // `seedMarketplaceData` now returns an `error` field when seeding is
+      // disabled in production (which is the default — must be explicitly
+      // overridden with ALLOW_DEMO_SEED_IN_PRODUCTION=true).
+      const result = await seedMarketplaceData(user.id);
+      if ('error' in result && result.error) {
+        toast({
+          variant: "destructive",
+          title: "Demo Seeding Disabled",
+          description: result.error,
+        });
+        return;
+      }
       toast({
-        title: "Systems Initialized",
-        description: "PostgreSQL has been seeded with realistic operational data.",
+        title: "Demo Data Added",
+        description: `${result.users} demo users, ${result.products} demo products, ${result.orders} demo orders inserted. All Stripe IDs are prefixed with TEST_ for identification.`,
       });
       await loadStats(true);
     } catch (error: unknown) {
@@ -168,7 +180,7 @@ export default function AdminDashboardPage() {
               {stats && stats.totalOrders === 0 && (
                 <Button size="sm" onClick={handleSeedData} disabled={isSeeding}>
                   {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
-                  Initialize System Data
+                  Add Demo Data
                 </Button>
               )}
             </div>
