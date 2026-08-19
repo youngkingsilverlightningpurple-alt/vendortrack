@@ -286,19 +286,94 @@ export type RateLimitKey = keyof typeof RATE_LIMITS;
 /**
  * Check if a request is within rate limits.
  *
+ * When Redis is available (via initRedisRateLimit), rate limits are distributed
+ * across all instances. Otherwise, in-memory per-process limits are used.
+ *
  * @param config - Rate limit configuration
  * @param identifier - User ID or IP address
  * @returns Rate limit result with remaining count and reset time
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   config: RateLimitConfig,
   identifier: string
-): RateLimitResult {
+): Promise<RateLimitResult> {
   const key = `${config.keyPrefix}:${identifier}`;
   const now = Date.now();
   const windowMs = config.windowSeconds * 1000;
   const resetAt = now + windowMs;
 
+  // Try Redis-backed rate limiting first
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const redisKey = `rl:${key}`;
+      const burstKey = `rl:burst:${key}`;
+
+      // Increment main counter
+      const count = await redis.incr(redisKey);
+      if (count === 1) {
+        // First request in window — set expiry
+        await redis.expire(redisKey, config.windowSeconds);
+      }
+
+      // Get TTL for reset time calculation
+      const ttl = await redis.get(redisKey);
+
+      // Check sustained limit
+      if (count > config.maxRequests) {
+        const retryAfter = config.windowSeconds; // approximate
+        log.warn('Redis rate limit exceeded', {
+          action: 'rate_limit_exceeded',
+          data: { key, count, max: config.maxRequests, retryAfter },
+        });
+        return {
+          allowed: false,
+          remaining: 0,
+          resetAt: now + windowMs,
+          retryAfter,
+          reason: `Rate limit exceeded. Try again in ${retryAfter} seconds.`,
+        };
+      }
+
+      // Check burst limit if configured
+      if (config.burstMax) {
+        const burstCount = await redis.incr(burstKey);
+        if (burstCount === 1) {
+          await redis.expire(burstKey, config.burstWindowSeconds || 10);
+        }
+
+        if (burstCount > config.burstMax) {
+          const retryAfter = config.burstWindowSeconds || 10;
+          log.warn('Redis burst rate limit exceeded', {
+            action: 'burst_rate_limit_exceeded',
+            data: { key, burstCount, burstMax: config.burstMax, retryAfter },
+          });
+          return {
+            allowed: false,
+            remaining: 0,
+            resetAt: now + (config.burstWindowSeconds || 10) * 1000,
+            retryAfter,
+            reason: `Burst rate limit exceeded. Try again in ${retryAfter} seconds.`,
+          };
+        }
+      }
+
+      const remaining = Math.max(0, config.maxRequests - count);
+      return {
+        allowed: true,
+        remaining,
+        resetAt: now + windowMs,
+      };
+    } catch (redisError) {
+      // Redis error — fall through to in-memory
+      log.warn('Redis rate limit failed, falling back to in-memory', {
+        action: 'rate_limit_redis_fallback',
+        data: { error: redisError instanceof Error ? redisError.message : String(redisError) },
+      });
+    }
+  }
+
+  // In-memory fallback
   let bucket = store.get(key);
 
   // Create new bucket if not exists or expired
@@ -411,14 +486,15 @@ export function getRateLimitHeaders(
 /**
  * Apply rate limit to a request and return a 429 response if exceeded.
  * Returns null if the request is allowed.
+ * Now async to support Redis-backed rate limiting.
  */
-export function applyRateLimit(
+export async function applyRateLimit(
   request: NextRequest,
   config: RateLimitConfig,
   userId?: string
-): { allowed: true; result: RateLimitResult } | { allowed: false; response: Response } {
+): Promise<{ allowed: true; result: RateLimitResult } | { allowed: false; response: Response }> {
   const identifier = getClientIdentifier(request, userId);
-  const result = checkRateLimit(config, identifier);
+  const result = await checkRateLimit(config, identifier);
 
   if (!result.allowed) {
     const headers = getRateLimitHeaders(result, config);

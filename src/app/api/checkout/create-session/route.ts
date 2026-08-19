@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   }
 
   // Step 2: Rate limiting (per-user)
-  const rateLimitResult = checkRateLimit(
+  const rateLimitResult = await checkRateLimit(
     RATE_LIMITS.CHECKOUT,
     `user:${auth.userId}`
   );

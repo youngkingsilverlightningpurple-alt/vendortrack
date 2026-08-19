@@ -12,12 +12,25 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: 'VendorTrack | Enterprise Multi-Vendor Infrastructure',
-  description: 'A transaction-safe multi-vendor marketplace engine with database-enforced financial integrity.',
-  // Preconnect to external domains for faster resource loading
-  other: {
-    'dns-prefetch': 'https://images.unsplash.com',
-    'preconnect': 'https://images.unsplash.com',
+  title: {
+    default: 'VendorTrack — Multi-Vendor Marketplace Platform',
+    template: '%s | VendorTrack',
+  },
+  description: 'The multi-vendor marketplace platform built for trust, scale, and financial integrity. Secure payments, seller dashboards, and automated payouts.',
+  keywords: ['marketplace', 'multi-vendor', 'ecommerce', 'seller platform', 'stripe connect', 'vendor management'],
+  authors: [{ name: 'VendorTrack' }],
+  creator: 'VendorTrack',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    siteName: 'VendorTrack',
+    title: 'VendorTrack — Multi-Vendor Marketplace Platform',
+    description: 'The multi-vendor marketplace platform built for trust, scale, and financial integrity.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'VendorTrack — Multi-Vendor Marketplace Platform',
+    description: 'The multi-vendor marketplace platform built for trust, scale, and financial integrity.',
   },
 };
 
@@ -36,7 +49,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${manrope.variable}`} suppressHydrationWarning>
       <head>
-        <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <meta name="theme-color" content="#1a6b3c" />
       </head>
       <body className="font-body antialiased bg-background text-foreground transition-colors">
         <SupabaseProvider>

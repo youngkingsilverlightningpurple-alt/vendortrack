@@ -79,23 +79,47 @@ class PaymentSessionRepository {
     if (error) throw fromDatabaseError(error);
   }
 
-  /** Cancel stale sessions for a user */
-  async cancelStaleSessions(userId: string): Promise<void> {
+  /**
+   * Cancel stale (expired but still marked pending) sessions for a user.
+   *
+   * P0 FIX (war room): The previous implementation queried sessions where
+   * `expires_at > now()` (i.e. NOT yet expired) and then cancelled all of them,
+   * including the most recent active session. That destroyed legitimate
+   * concurrent checkout attempts.
+   *
+   * Correct behavior: only cancel sessions whose `expires_at` is in the past
+   * (genuinely stale) AND whose status is still `pending`. Live pending
+   * sessions (not yet expired) are left untouched.
+   */
+  async cancelStaleSessions(userId: string): Promise<number> {
     const admin = getSupabaseAdmin();
-    const { data: staleSessions } = await (admin
+    const nowIso = new Date().toISOString();
+
+    // Only select sessions that are genuinely stale: status=pending AND expires_at < now
+    const { data: staleSessions, error } = await (admin
       .from('payment_sessions') as any)
-      .select('id, status')
+      .select('id')
       .eq('user_id', userId)
       .eq('status', 'pending')
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false });
+      .lt('expires_at', nowIso);
 
-    if (staleSessions && staleSessions.length > 0) {
-      // Cancel all but the most recent
-      for (const session of staleSessions as any[]) {
-        await this.updateStatus(session.id, 'failed');
-      }
+    if (error) throw fromDatabaseError(error);
+
+    if (!staleSessions || staleSessions.length === 0) {
+      return 0;
     }
+
+    // Single UPDATE statement — atomic and idempotent
+    const staleIds = (staleSessions as any[]).map((s) => s.id);
+    const { error: updateError } = await (admin
+      .from('payment_sessions') as any)
+      .update({ status: 'failed' } as any)
+      .in('id', staleIds)
+      .eq('status', 'pending'); // re-check status to avoid TOCTOU race
+
+    if (updateError) throw fromDatabaseError(updateError);
+
+    return staleIds.length;
   }
 }
 

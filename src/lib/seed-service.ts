@@ -84,7 +84,7 @@ export async function seedMarketplaceData(adminId: string) {
     buyerProfiles.push({
       id: crypto.randomUUID(),
       full_name: `${FIRST_NAMES[Math.floor(Math.random() * 10)]} ${LAST_NAMES[Math.floor(Math.random() * 10)]}`,
-      email: `user${i}@example.com`,
+      email: `buyer${i}@vendortrack.io`,
       role: 'buyer',
       created_at: new Date(Date.now() - (Math.random() * 60 * 24 * 60 * 60 * 1000)).toISOString()
     });
@@ -107,7 +107,7 @@ export async function seedMarketplaceData(adminId: string) {
       description: `Industrial-grade ${category.toLowerCase()} solution with high-tolerance components.`,
       price_cents: priceCents,
       stock: Math.floor(Math.random() * 85),
-      image_url: `https://picsum.photos/seed/elec${i}/600/600`,
+      image_url: `/api/placeholder/${category.toLowerCase()}/${i}`,
       status: 'active',
       created_at: new Date(Date.now() - (Math.random() * 45 * 24 * 60 * 60 * 1000)).toISOString()
     });

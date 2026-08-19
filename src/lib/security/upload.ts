@@ -316,30 +316,28 @@ export interface VirusScanner {
 }
 
 /**
- * Default virus scanner — logs a security warning in production.
- * SECURITY: Replace with a real implementation (ClamAV, VirusTotal, etc.)
- * before processing user file uploads in production.
+ * Default virus scanner — REJECTS files in production when no real scanner is configured.
+ * SECURITY: In production, files are REJECTED unless a real scanner is set via setVirusScanner().
+ * This prevents malicious files from being accepted without scanning.
+ *
+ * To enable file uploads in production, configure a real scanner:
+ *   setVirusScanner(clamavScanner);  // or VirusTotal, AWS S3 scanning, etc.
  */
 export const defaultVirusScanner: VirusScanner = {
   async scan(buffer: ArrayBuffer, filename: string) {
-    // SECURITY WARNING: This is a placeholder that does NOT actually scan files.
-    // In production, you MUST replace this with a real virus scanner:
-    //
-    // Example with ClamAV:
-    //   import { NodeClam } from 'clamscan';
-    //   const clamscan = await new NodeClam().init({ ... });
-    //   const { isInfected } = await clamscan.isInfected(buffer);
-    //   return { clean: !isInfected, virusName: isInfected ? 'ClamAV-detected' : undefined };
-    //
-    // Example with VirusTotal API:
-    //   const response = await fetch('https://www.virustotal.com/api/v3/files', { ... });
-    //
+    // SECURITY: In production WITHOUT a real scanner, REJECT all files.
+    // This is fail-safe: no file gets through without scanning.
     if (process.env.NODE_ENV === 'production') {
-      console.warn(
-        `[SECURITY] No virus scanner configured — file "${filename}" was NOT scanned. ` +
+      console.error(
+        `[SECURITY] No virus scanner configured — file "${filename}" was REJECTED. ` +
         'Call setVirusScanner() with a real implementation before accepting user uploads.'
       );
+      return { clean: false, threats: ['No virus scanner configured — upload blocked for safety'] };
     }
+    // In non-production (dev/test), allow through with a warning
+    console.warn(
+      `[SECURITY] No virus scanner configured — file "${filename}" was NOT scanned (dev/test only).`
+    );
     return { clean: true };
   },
 };
@@ -413,7 +411,6 @@ export function validateImageURL(url: string): { valid: boolean; reason?: string
 
     // Check for allowed image hosting domains
     const allowedDomains = [
-      'placehold.co', 'images.unsplash.com', 'picsum.photos',
       'lh3.googleusercontent.com', 'supabase.co',
     ];
 

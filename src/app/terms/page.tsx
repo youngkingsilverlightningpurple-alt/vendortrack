@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { ShieldCheck, Database, Lock } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | VendorTrack Infrastructure Asset',
+  title: 'Terms of Service',
+  description: 'VendorTrack terms of service — marketplace rules, seller obligations, and buyer protections.',
 };
 
 export default function TermsOfServicePage() {

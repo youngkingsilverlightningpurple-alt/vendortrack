@@ -7,9 +7,10 @@
  *   - Slow queries
  *   - Recent errors
  *   - Cache stats
- *   - Prometheus export
+ *   - Prometheus export (authenticated via PROMETHEUS_BEARER_TOKEN)
  *
- * SECURITY: Admin-only access.
+ * SECURITY: Admin-only access for JSON format.
+ *           Prometheus format requires PROMETHEUS_BEARER_TOKEN in Authorization header.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -19,23 +20,36 @@ import { requireAuth, isAuthError } from '@/lib/auth';
 import { PERMISSIONS } from '@/lib/rbac';
 
 export async function GET(request: NextRequest) {
-  // Admin-only access
-  const auth = await requireAuth({ permission: PERMISSIONS.ADMIN_READ });
-  if (isAuthError(auth)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { searchParams } = new URL(request.url);
   const format = searchParams.get('format') || 'json';
 
-  // Prometheus format
+  // Prometheus format — use dedicated bearer token auth (not user session)
   if (format === 'prometheus') {
+    const bearerToken = process.env.PROMETHEUS_BEARER_TOKEN;
+    if (!bearerToken) {
+      // SECURITY: If no token configured, deny Prometheus scraping entirely
+      return NextResponse.json(
+        { error: 'Prometheus scraping not configured. Set PROMETHEUS_BEARER_TOKEN env var.' },
+        { status: 503 }
+      );
+    }
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${bearerToken}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const prometheus = performanceMonitor.exportPrometheus();
     return new NextResponse(prometheus, {
       headers: {
         'Content-Type': 'text/plain; version=0.0.4',
       },
     });
+  }
+
+  // JSON format — Admin-only access
+  const auth = await requireAuth({ permission: PERMISSIONS.ADMIN_READ });
+  if (isAuthError(auth)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   // Full performance snapshot

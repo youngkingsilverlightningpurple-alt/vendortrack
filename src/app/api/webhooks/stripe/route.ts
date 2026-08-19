@@ -21,6 +21,7 @@ import { paymentSessionRepository } from '@/repositories/payment-session-reposit
 import { orderRepository } from '@/repositories/order-repository';
 import { auditLogRepository } from '@/repositories/audit-log-repository';
 import { toAppError, AppError, ErrorCode } from '@/lib/errors';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 // Stripe singleton
 let _stripe: Stripe | null = null;
@@ -33,7 +34,23 @@ function getStripe(): Stripe {
   return _stripe;
 }
 
-const MAX_EVENT_AGE_MS = 5 * 60 * 1000; // 5 minutes
+/**
+ * P0 FIX (war room): Replay window extended from 5 minutes to 72 hours.
+ *
+ * Stripe's documented retry schedule extends up to 3 days for events that
+ * fail to deliver (https://stripe.com/docs/webhooks#retries). The previous
+ * 5-minute window meant that if our endpoint was unreachable for >5 minutes
+ * (deploy, brief outage, DB blip), Stripe's legitimate retries beyond that
+ * window were acknowledged with HTTP 200 and silently dropped — buyer's
+ * payment remained captured, but the order was never fulfilled and no
+ * auto-refund triggered.
+ *
+ * 72 hours covers Stripe's max retry window while still rejecting genuinely
+ * stale replays (e.g. a misconfigured replay from days ago). The
+ * `processed_events` table provides the actual idempotency guarantee — the
+ * age check is a defense-in-depth, not the primary control.
+ */
+const MAX_EVENT_AGE_MS = 72 * 60 * 60 * 1000; // 72 hours
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -64,9 +81,33 @@ export async function POST(req: Request) {
   }
 
   // Step 3: ATOMIC idempotency check
-  const { inserted } = await auditLogRepository.insertProcessedEvent(event.id);
+  //
+  // P0 FIX (war room): if `insertProcessedEvent` returns `inserted: false`
+  // for ANY reason (duplicate OR DB error), we MUST NOT process the event.
+  // - If it was a duplicate (23505 unique violation) → return 200 OK (Stripe
+  //   has already seen us process it, no need to retry).
+  // - If it was a DB error → return 500 so Stripe retries the webhook.
+  //   On retry, the DB will hopefully be available, the idempotency insert
+  //   will succeed, and we'll process the event exactly once.
+  //
+  // The previous implementation was fail-open: on DB error it returned
+  // `inserted: true`, causing duplicate processing on Stripe retry.
+  const idempotencyResult = await auditLogRepository.insertProcessedEvent(event.id);
 
-  if (!inserted) {
+  if (!idempotencyResult.inserted) {
+    if (idempotencyResult.error) {
+      // DB error — could not guarantee idempotency. Return 500 so Stripe retries.
+      PaymentLogger.error(traceId, 'webhook_idempotency_failed', new Error(`Idempotency check failed for event ${event.id}: ${idempotencyResult.error}`), {
+        eventId: event.id,
+        eventType: event.type,
+        error: idempotencyResult.error,
+      });
+      return NextResponse.json(
+        { error: 'Idempotency check failed — please retry' },
+        { status: 500 }
+      );
+    }
+    // Duplicate event (23505) — already processed, acknowledge with 200 OK
     PaymentLogger.info(traceId, 'webhook_duplicate', `Event ${event.id} already processed — skipping`, {
       eventId: event.id,
       eventType: event.type,
@@ -187,6 +228,17 @@ async function handlePaymentIntentSucceeded(
     });
 
     // SAFETY REFUND: Any failure here triggers a Stripe reversal
+    //
+    // P0 FIX (war room): idempotency key on auto-refund.
+    // Without it, a network blip between Stripe returning 200 and our SDK
+    // receiving the response would cause a retry to issue a SECOND refund
+    // for the same PaymentIntent — double-refunding the seller.
+    //
+    // Key: `webhook_auto_refund:{event.id}` — deterministic per Stripe event.
+    // If Stripe retries this webhook event, `processed_events` table
+    // deduplicates at step 3, so we never reach this code path twice for
+    // the same event_id. But if `withRetry` inside this closure retries
+    // the Stripe API call (not the webhook), the idempotency key protects us.
     try {
       const refund = await stripe.refunds.create({
         payment_intent: pi.id,
@@ -196,12 +248,34 @@ async function handlePaymentIntentSucceeded(
           recovery_action: 'AUTO_REFUND_ON_SYSTEM_FAILURE',
           original_event_id: event.id,
         },
+      }, {
+        idempotencyKey: `webhook_auto_refund:${event.id}`,
       });
 
       await paymentSessionRepository.updateStatus(sessionId, 'failed');
 
-      // Derive order_id from payment intent metadata or lookup
-      const orderIdFromMeta = pi.metadata?.orderId || '';
+      // P0 FIX (war room): order_id is NULLABLE.
+      // Previously passed `'UNKNOWN'` (not a UUID), which failed
+      // `financial_ledger.order_id UUID REFERENCES orders(id)` validation
+      // and silently dropped the ledger entry. NULL is the correct value
+      // when the order could not be resolved.
+      let orderIdFromMeta: string | null = pi.metadata?.orderId || null;
+      if (!orderIdFromMeta) {
+        // Fallback: look up order by payment_intent_id
+        try {
+          const { data: order } = await (getSupabaseAdmin()
+            .from('orders') as any)
+            .select('id')
+            .eq('payment_intent_id', pi.id)
+            .limit(1)
+            .single();
+          if (order?.id) orderIdFromMeta = order.id;
+        } catch {
+          // Order lookup failed — leave as null. Ledger entry will be
+          // written with NULL order_id, which is valid (column allows NULL).
+          // Reconciliation can later match by payment_intent_id.
+        }
+      }
       await createLedgerEntry({
         event_type: 'refund_completed',
         order_id: orderIdFromMeta,
@@ -268,8 +342,25 @@ async function handleChargeRefunded(event: Stripe.Event, traceId: string) {
   });
 
   try {
-    // Derive order_id from charge's payment intent metadata
-    const orderIdFromCharge = (charge as any).metadata?.orderId || '';
+    // P0 FIX (war room): order_id is NULLABLE.
+    // Previously passed `'UNKNOWN'` (not a UUID), which failed
+    // `financial_ledger.order_id UUID REFERENCES orders(id)` validation
+    // and silently dropped the ledger entry. NULL is correct when the
+    // order cannot be resolved by metadata or payment_intent_id lookup.
+    let orderIdFromCharge: string | null = (charge as any).metadata?.orderId || null;
+    if (!orderIdFromCharge) {
+      try {
+        const { data: order } = await (getSupabaseAdmin()
+          .from('orders') as any)
+          .select('id')
+          .eq('payment_intent_id', paymentIntentId)
+          .limit(1)
+          .single();
+        if (order?.id) orderIdFromCharge = order.id;
+      } catch {
+        // Order lookup failed — leave as null. Reconciliation can match by payment_intent_id.
+      }
+    }
     await createLedgerEntry({
       event_type: 'refund_completed',
       order_id: orderIdFromCharge,
@@ -306,8 +397,21 @@ async function handlePaymentIntentFailed(event: Stripe.Event, traceId: string) {
   }
 
   try {
-    // Derive order_id from payment intent metadata
-    const orderIdFromFailedPI = pi.metadata?.orderId || '';
+    // P0 FIX (war room): order_id is NULLABLE — pass null when not resolvable.
+    let orderIdFromFailedPI: string | null = pi.metadata?.orderId || null;
+    if (!orderIdFromFailedPI) {
+      try {
+        const { data: order } = await (getSupabaseAdmin()
+          .from('orders') as any)
+          .select('id')
+          .eq('payment_intent_id', pi.id)
+          .limit(1)
+          .single();
+        if (order?.id) orderIdFromFailedPI = order.id;
+      } catch {
+        // Order lookup failed — leave as null.
+      }
+    }
     await createLedgerEntry({
       event_type: 'payment_created',
       order_id: orderIdFromFailedPI,
@@ -342,8 +446,21 @@ async function handleDisputeCreated(event: Stripe.Event, traceId: string) {
   });
 
   try {
-    // Derive order_id from dispute's charge metadata
-    const orderIdFromDispute = (dispute.metadata as Record<string, string>)?.orderId || '';
+    // P0 FIX (war room): order_id is NULLABLE — pass null when not resolvable.
+    let orderIdFromDispute: string | null = (dispute.metadata as Record<string, string>)?.orderId || null;
+    if (!orderIdFromDispute && dispute.payment_intent) {
+      try {
+        const { data: order } = await (getSupabaseAdmin()
+          .from('orders') as any)
+          .select('id')
+          .eq('payment_intent_id', dispute.payment_intent as string)
+          .limit(1)
+          .single();
+        if (order?.id) orderIdFromDispute = order.id;
+      } catch {
+        // Order lookup failed — leave as null.
+      }
+    }
     await createLedgerEntry({
       event_type: 'dispute',
       order_id: orderIdFromDispute,

@@ -92,11 +92,17 @@ async function checkRedis(): Promise<HealthCheckResult> {
       };
     }
 
-    // Attempt Redis connection check
-    // In production, this would use the actual Redis client
-    // For now, we verify the URL is parseable
-    const parsed = new URL(redisUrl);
-    if (!parsed.hostname) {
+    // SECURITY: Parse URL to verify format, but NEVER expose hostname/port
+    // in the health response. Only report connectivity status.
+    try {
+      const parsed = new URL(redisUrl);
+      if (!parsed.hostname) {
+        return {
+          status: 'unhealthy',
+          error: 'Invalid Redis URL format',
+        };
+      }
+    } catch {
       return {
         status: 'unhealthy',
         error: 'Invalid Redis URL format',
@@ -137,26 +143,31 @@ function checkMemory(): HealthCheckResult {
 function checkEnvironment(): HealthCheckResult {
   // SECURITY: Never expose env var names or values in the health response.
   // An unauthenticated attacker could use this information for targeted attacks.
-  // We only report counts, never variable names.
-  const allVars = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'STRIPE_SECRET_KEY',
-    'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
-    'STRIPE_WEBHOOK_SECRET',
-    'REDIS_URL',
-    'GEMINI_API_KEY',
-    'SENTRY_DSN',
-  ];
+  // We only report counts, never variable names or values.
+  const TOTAL_EXPECTED_VARS = 9; // total expected env vars (count only)
+  const CORE_EXPECTED_VARS = 3;   // core required env vars (count only)
 
-  const missingCount = allVars.filter(key => !process.env[key]).length;
-  const coreVars = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'SUPABASE_SERVICE_ROLE_KEY',
-  ];
-  const coreMissingCount = coreVars.filter(key => !process.env[key]).length;
+  // Check core vars by count — never reveal which ones are missing by name
+  const coreSet = new Set([
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+  ].filter(Boolean));
+  const coreMissingCount = CORE_EXPECTED_VARS - coreSet.size;
+
+  // Check all vars by count
+  const allSet = new Set([
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.STRIPE_SECRET_KEY,
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.REDIS_URL,
+    process.env.GEMINI_API_KEY,
+    process.env.SENTRY_DSN,
+  ].filter(Boolean));
+  const missingCount = TOTAL_EXPECTED_VARS - allSet.size;
 
   if (coreMissingCount > 0) {
     return {

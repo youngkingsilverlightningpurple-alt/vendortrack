@@ -31,7 +31,7 @@ import DOMPurify from 'isomorphic-dompurify';
 /**
  * DOMPurify configuration for the default safe allowlist.
  */
-const DOMPURIFY_CONFIG: DOMPurify.Config = {
+const DOMPURIFY_CONFIG: Record<string, unknown> = {
   ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'code', 'pre', 'span', 'sub', 'sup'],
   ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'id'],
   ALLOW_DATA_ATTR: false,
@@ -124,14 +124,14 @@ export function sanitizeHTML(
   // DOMPurify handles all known XSS bypass vectors including malformed HTML,
   // mXSS, DOM clobbering, and namespace attacks that regex cannot catch.
   try {
-    const config = { ...DOMPURIFY_CONFIG };
+    const config: Record<string, unknown> = { ...DOMPURIFY_CONFIG };
     if (options.allowedTags) {
       config.ALLOWED_TAGS = Array.from(options.allowedTags);
     }
     if (options.allowedAttrs) {
       config.ALLOWED_ATTR = Array.from(options.allowedAttrs);
     }
-    return DOMPurify.sanitize(trimmedInput, config).trim();
+    return (DOMPurify.sanitize(trimmedInput, config) as string).trim();
   } catch {
     // FALLBACK: If DOMPurify fails (should never happen), use regex sanitizer
     // This is less robust but prevents a total sanitization failure
@@ -185,16 +185,16 @@ export function sanitizeHTML(
 
     // Allow closing tags for allowed tags
     if (match.startsWith('</')) {
-      return allowedTags.has(tag) ? match : '';
+      return ALLOWED_TAGS.has(tag) ? match : '';
     }
 
     // Remove disallowed opening tags
-    if (!allowedTags.has(tag)) {
+    if (!ALLOWED_TAGS.has(tag)) {
       return '';
     }
 
     // Filter attributes on allowed tags
-    const filteredAttrs = filterAttributes(attrs, allowedAttrs);
+    const filteredAttrs = filterAttributes(attrs, ALLOWED_ATTRS);
     return filteredAttrs ? `<${tag} ${filteredAttrs}>` : `<${tag}>`;
   });
 

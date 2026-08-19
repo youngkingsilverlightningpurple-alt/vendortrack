@@ -76,7 +76,17 @@ export enum ErrorCode {
 // ERROR CONTEXT
 // ============================================================
 
-export type PrimitiveValue = string | number | boolean | undefined;
+/**
+ * Primitive value type used across log data, error context, and ledger metadata.
+ *
+ * P0 FIX (war room): added `null` to support nullable ledger `order_id`.
+ * Previously `PrimitiveValue` was `string | number | boolean | undefined`,
+ * which prevented passing `null` for fields like `orderId: entry.order_id`
+ * after `order_id` became `string | null` (see ledger-service.ts). NULL is
+ * a legitimate runtime value for pre-order ledger events (e.g. `payment_created`
+ * fires before `fulfill_order_v2` creates the order row).
+ */
+export type PrimitiveValue = string | number | boolean | null | undefined;
 export type ErrorContext = Record<string, PrimitiveValue>;
 
 // ============================================================

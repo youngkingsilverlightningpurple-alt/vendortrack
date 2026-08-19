@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Lock, ShieldCheck, Database } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | VendorTrack Infrastructure Asset',
+  title: 'Privacy Policy',
+  description: 'VendorTrack privacy policy — how we collect, use, and protect your personal data.',
 };
 
 export default function PrivacyPolicyPage() {
@@ -52,7 +53,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-bold">4. User Sovereignty</h2>
             <p className="mt-4 text-slate-600 leading-relaxed">
-              We do not sell, rent, or monetize your personal data. The system is designed as a neutral financial utility. Users may request full account and data purge via the platform administrator's mission control dashboard.
+              We do not sell, rent, or monetize your personal data. The system is designed as a neutral financial utility. Users may request full account and data purge via the platform administrator dashboard.
             </p>
           </section>
 

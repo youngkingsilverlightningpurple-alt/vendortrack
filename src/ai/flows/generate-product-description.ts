@@ -87,7 +87,7 @@ export async function generateProductDescription(input: ProductDescriptionReques
   }
 
   // SECURITY GATE 2: Rate limiting
-  const rateLimitResult = checkRateLimit(
+  const rateLimitResult = await checkRateLimit(
     RATE_LIMITS.AI_GENERATE,
     `user:${auth.userId}`
   );

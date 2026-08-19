@@ -30,7 +30,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { fetchMarketplaceStats, type MarketplaceStats } from '@/services/analytics-service';
+import { analyticsService, type MarketplaceStats } from '@/services/analytics-service';
 import { SystemHealthWidget } from '@/components/system-health-widget';
 import { Badge } from '@/components/ui/badge';
 import { PlatformRevenueChart } from '@/components/platform-revenue-chart';
@@ -85,7 +85,7 @@ export default function AdminDashboardPage() {
     if (!user) return;
     setIsLoading(true);
     try {
-      const data = await fetchMarketplaceStats();
+      const data = await analyticsService.fetchMarketplaceStats();
       setStats(data);
     } catch (error: unknown) {
       log.error("Error loading platform stats:", undefined, error);
@@ -146,8 +146,8 @@ export default function AdminDashboardPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold tracking-tight text-primary">Mission Control</h1>
-                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest border-primary/30 text-primary">System Live</Badge>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Admin Dashboard</h1>
+                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest border-primary/30 text-primary">Live</Badge>
               </div>
               <p className="text-sm text-muted-foreground flex items-center gap-2 font-medium">
                 Operational audit of current marketplace activity.
@@ -163,7 +163,7 @@ export default function AdminDashboardPage() {
                 disabled={isLoading}
               >
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                Sync Ledger
+                Sync Data
               </Button>
               {stats && stats.totalOrders === 0 && (
                 <Button size="sm" onClick={handleSeedData} disabled={isSeeding}>

@@ -25,10 +25,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Logo } from "@/components/logo";
-import { Loader2, Zap } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { useToast } from "@/hooks/use-toast";
-import { Separator } from "@/components/ui/separator";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email." }),
@@ -77,57 +76,91 @@ export default function LoginPage() {
   }
 
   if (isAuthLoading) {
-    return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
-      <Card className="w-full max-w-sm border-primary/10 shadow-xl overflow-hidden relative">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-blue-500 to-primary" />
-        <CardHeader className="items-center text-center">
-          <Logo className="mb-2" />
-          <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-          <CardDescription>Enter your credentials to access the marketplace.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl><Input placeholder="name@example.com" {...field} type="email" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl><Input placeholder="••••••••" {...field} type="password" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Login
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className="justify-center text-sm border-t bg-muted/30 py-4">
-          <p className="text-muted-foreground">
-            Don't have an account?{" "}
-            <Link href="/signup" className="font-semibold text-primary hover:underline">Sign up</Link>
-          </p>
-        </CardFooter>
-      </Card>
+    <div className="flex min-h-screen">
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-primary items-center justify-center p-12">
+        <div className="max-w-md text-white space-y-8">
+          <Logo size="lg" className="[&_span]:text-white [&_span]:text-white" />
+          <div className="space-y-4">
+            <h1 className="text-3xl font-extrabold leading-tight">
+              Your marketplace,<br />your way.
+            </h1>
+            <p className="text-white/70 text-base leading-relaxed">
+              VendorTrack gives you the tools to sell, ship, and scale — with financial integrity built in from day one.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { label: 'Secure Payments', value: 'Stripe Connect' },
+              { label: 'Seller Tools', value: 'AI-Powered' },
+              { label: 'Order Tracking', value: 'Full Lifecycle' },
+              { label: 'Financial Integrity', value: 'PostgreSQL' },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
+                <p className="text-[10px] uppercase tracking-wider text-white/60 font-bold">{label}</p>
+                <p className="text-sm font-semibold mt-0.5">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-sm border-slate-200/60 shadow-sm">
+          <CardHeader className="items-center text-center">
+            <Logo className="lg:hidden mb-2" />
+            <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+            <CardDescription>Sign in to your VendorTrack account.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl><Input placeholder="you@company.com" {...field} type="email" autoComplete="email" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl><Input placeholder="Enter your password" {...field} type="password" autoComplete="current-password" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Sign In
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter className="justify-center text-sm border-t bg-slate-50/50 py-4">
+            <p className="text-muted-foreground">
+              Don&apos;t have an account?{" "}
+              <Link href="/signup" className="font-semibold text-primary hover:underline">Sign up</Link>
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }

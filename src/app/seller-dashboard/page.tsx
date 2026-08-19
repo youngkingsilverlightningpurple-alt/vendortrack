@@ -152,8 +152,8 @@ export default function SellerDashboardPage() {
       <div className="flex-1 space-y-6 p-4 pt-6 md:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-primary">Store Overview</h1>
-            <p className="text-sm text-muted-foreground">Manage your business and track sales in real-time.</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Store Overview</h1>
+            <p className="text-sm text-muted-foreground">Track sales, manage inventory, and monitor performance.</p>
           </div>
           {!isLoading && productsCount > 0 && profile?.sellerStatus === 'approved' && (
             <Button asChild>
@@ -201,7 +201,7 @@ export default function SellerDashboardPage() {
 
             <Card className="border-none shadow-sm ring-1 ring-border/50">
               <CardHeader>
-                <CardTitle>Platform Governance</CardTitle>
+                <CardTitle>Platform Status</CardTitle>
                 <CardDescription>Your current standing on the VendorTrack marketplace.</CardDescription>
               </CardHeader>
               <CardContent>
@@ -238,7 +238,7 @@ export default function SellerDashboardPage() {
                         <p className="text-xs text-muted-foreground">Platform operational commission</p>
                       </div>
                     </div>
-                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">10% per sale</span>
+                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">10% commission</span>
                   </div>
                 </div>
               </CardContent>

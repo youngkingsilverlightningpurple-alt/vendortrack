@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   // Rate limiting (public endpoint — use IP)
   const identifier = getClientIdentifier(request);
-  const rateLimitResult = checkRateLimit(RATE_LIMITS.SEARCH, identifier);
+  const rateLimitResult = await checkRateLimit(RATE_LIMITS.SEARCH, identifier);
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
       { error: 'Too many requests', code: 'RATE_LIMIT_EXCEEDED', retryAfter: rateLimitResult.retryAfter },

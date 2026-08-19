@@ -63,8 +63,8 @@ export default function CartPage() {
   return (
     <AuthenticatedLayout>
       <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-        <h1 className="text-3xl font-bold tracking-tight text-primary">Transactional Cart</h1>
-        <p className="text-sm text-muted-foreground mb-6">Review your pending items before session locking.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Shopping Cart</h1>
+        <p className="text-sm text-muted-foreground mb-6">Review your items before checkout.</p>
         <CartView items={combinedItems} isLoading={isLoading} />
       </div>
     </AuthenticatedLayout>

@@ -75,8 +75,6 @@ export default function SignupPage() {
       return;
     }
 
-    // Profiles are usually created via a Supabase Trigger on auth.users.
-    // Here we manually update if needed, but assuming a trigger exists.
     const { error: pError } = await supabase
       .from('profiles')
       .update({ role: values.role, full_name: values.fullName })
@@ -91,88 +89,106 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="items-center">
-          <Logo />
-          <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
-          <CardDescription>Join our multi-vendor ecosystem.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
+    <div className="flex min-h-screen">
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-primary items-center justify-center p-12">
+        <div className="max-w-md text-white space-y-8">
+          <Logo size="lg" className="[&_span]:text-white" />
+          <div className="space-y-4">
+            <h1 className="text-3xl font-extrabold leading-tight">
+              Join the marketplace.<br />Start selling today.
+            </h1>
+            <p className="text-white/70 text-base leading-relaxed">
+              Whether you&apos;re a buyer looking for unique products or a seller ready to launch your storefront, VendorTrack has you covered.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <Card className="w-full max-w-md border-slate-200/60 shadow-sm">
+          <CardHeader className="items-center text-center">
+            <Logo className="lg:hidden mb-2" />
+            <CardTitle className="text-2xl font-bold">Create your account</CardTitle>
+            <CardDescription>Join the VendorTrack marketplace.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
                   control={form.control}
                   name="fullName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Full Name</FormLabel>
-                      <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                      <FormControl><Input placeholder="Your full name" {...field} autoComplete="name" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl><Input placeholder="name@example.com" {...field} type="email" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>I am a</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="buyer">Buyer</SelectItem>
-                        <SelectItem value="seller">Seller</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl><Input placeholder="••••••••" {...field} type="password" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl><Input placeholder="••••••••" {...field} type="password" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Account
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-        <CardFooter className="justify-center text-sm">
-          <p>Already have an account? <Link href="/login" className="font-medium text-primary hover:underline">Login</Link></p>
-        </CardFooter>
-      </Card>
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl><Input placeholder="you@company.com" {...field} type="email" autoComplete="email" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>I am a</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="buyer">Buyer — Shop from sellers</SelectItem>
+                          <SelectItem value="seller">Seller — List & sell products</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl><Input placeholder="Min 6 characters" {...field} type="password" autoComplete="new-password" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl><Input placeholder="Re-enter your password" {...field} type="password" autoComplete="new-password" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Account
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+          <CardFooter className="justify-center text-sm border-t bg-slate-50/50 py-4">
+            <p className="text-muted-foreground">Already have an account? <Link href="/login" className="font-semibold text-primary hover:underline">Sign in</Link></p>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }

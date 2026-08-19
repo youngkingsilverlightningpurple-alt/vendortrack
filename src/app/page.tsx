@@ -1,37 +1,36 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { 
-  Zap, 
-  ShieldCheck, 
-  LayoutDashboard, 
-  ArrowRight, 
-  Database, 
-  Repeat, 
-  CreditCard, 
-  Activity, 
-  ShieldAlert, 
-  Cpu, 
-  Layers, 
-  RotateCcw 
+import {
+  ShieldCheck,
+  ArrowRight,
+  ShoppingCart,
+  Store,
+  BarChart3,
+  Truck,
+  CreditCard,
+  Users,
+  Zap,
+  CheckCircle2,
+  Globe,
+  Lock,
 } from 'lucide-react';
+import { Logo } from '@/components/logo';
 
 const Header = () => (
-  <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-primary/10">
+  <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-lg border-b border-slate-200/60">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center h-16">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <Database className="text-white h-5 w-5" />
-          </div>
-          <span className="text-xl font-extrabold tracking-tight text-slate-900">VendorTrack<span className="text-primary">.</span></span>
+        <Logo size="default" />
+        <div className="hidden md:flex items-center gap-1">
+          <a className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50" href="#how-it-works">How It Works</a>
+          <a className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50" href="#features">Features</a>
+          <a className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50" href="#for-sellers">For Sellers</a>
+          <div className="w-px h-6 bg-slate-200 mx-2" />
+          <Link href="/login" className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors">Sign In</Link>
+          <Link className="bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-lg transition-all text-sm font-semibold shadow-sm" href="/signup">Get Started Free</Link>
         </div>
-        <div className="hidden md:flex items-center space-x-8 text-sm font-semibold text-slate-600">
-          <a className="hover:text-primary transition-colors" href="#architecture">Architecture</a>
-          <a className="hover:text-primary transition-colors" href="#recovery">Reliability</a>
-          <a className="hover:text-primary transition-colors" href="#demo">Sandbox</a>
-          <Link href="/login" className="hover:text-primary transition-colors">Client Login</Link>
-          <Link className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-lg transition-all shadow-lg" href="/signup">Get Started</Link>
+        <div className="md:hidden">
+          <Link href="/signup" className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold">Sign Up</Link>
         </div>
       </div>
     </div>
@@ -39,236 +38,198 @@ const Header = () => (
 );
 
 const Hero = () => (
-  <section className="pt-32 pb-20 hero-pattern overflow-hidden border-b">
+  <section className="pt-28 pb-20 lg:pt-36 lg:pb-28 overflow-hidden">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="grid lg:grid-cols-2 gap-12 items-center">
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-6 border border-primary/20">
-            <ShieldCheck className="h-3 w-3" />
-            Production-Ready Marketplace Engine
-          </div>
-          <h1 className="text-5xl lg:text-6xl font-extrabold leading-[1.1] mb-6 tracking-tight text-slate-900">
-            High-Integrity Core for <span className="text-primary">Marketplaces.</span>
-          </h1>
-          <p className="text-lg text-slate-600 mb-8 max-w-lg leading-relaxed">
-            Standardize your multi-vendor logic on a PostgreSQL-enforced transactional backbone. Engineered for financial precision and automated recovery.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <Button size="lg" className="w-full sm:w-auto h-14 px-8 rounded-xl font-bold text-lg group shadow-xl shadow-primary/20" asChild>
-              <Link href="/login">
-                Launch Sandbox
-                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 rounded-xl font-bold text-lg" asChild>
-              <Link href="/help">Documentation</Link>
-            </Button>
-          </div>
-          <p className="mt-8 text-xs text-slate-500 font-mono uppercase tracking-widest flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            System Status: Nominal / Reconciliation Active
-          </p>
+      <div className="max-w-3xl mx-auto text-center lg:max-w-4xl">
+        <div className="inline-flex items-center gap-2 bg-primary/8 text-primary px-3 py-1.5 rounded-full text-xs font-semibold mb-6 border border-primary/15">
+          <Zap className="h-3 w-3" />
+          Multi-Vendor Marketplace Platform
         </div>
-        <div className="relative">
-          <div className="bg-slate-900 p-2 rounded-2xl shadow-2xl border border-slate-800">
-            <div className="relative group overflow-hidden rounded-xl">
-              <Image width={1200} height={800} alt="System Architecture Overview" className="rounded-xl opacity-80" src="https://picsum.photos/seed/infra/1200/800" data-ai-hint="data architecture infrastructure" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent flex items-end p-8">
-                <div className="space-y-4 w-full">
-                   <div className="grid grid-cols-2 gap-4 text-[10px] font-mono text-white/80">
-                      <div className="p-3 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg">
-                        <p className="text-primary font-bold uppercase mb-1 flex items-center gap-1"><Layers className="h-3 w-3" /> State Engine</p>
-                        <p className="text-[9px] text-slate-400">Atomic inventory locking via PostgreSQL transactions.</p>
-                      </div>
-                      <div className="p-3 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg">
-                        <p className="text-primary font-bold uppercase mb-1 flex items-center gap-1"><Activity className="h-3 w-3" /> Ledger</p>
-                        <p className="text-[9px] text-slate-400">Integer-precision cents storage for zero-drift accounting.</p>
-                      </div>
-                   </div>
-                </div>
-              </div>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.08] mb-6 tracking-tight text-slate-900">
+          The marketplace platform
+          <br className="hidden sm:block" />
+          built for{' '}
+          <span className="text-primary">trust & scale.</span>
+        </h1>
+        <p className="text-lg sm:text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+          VendorTrack gives independent sellers a professional storefront, buyers a secure checkout, and platform operators full financial integrity — all in one system.
+        </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Button size="lg" className="w-full sm:w-auto h-13 px-8 rounded-xl font-semibold text-base group shadow-lg shadow-primary/15" asChild>
+            <Link href="/signup">
+              Start Selling Today
+              <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </Button>
+          <Button size="lg" variant="outline" className="w-full sm:w-auto h-13 px-8 rounded-xl font-semibold text-base" asChild>
+            <Link href="/products">Browse Marketplace</Link>
+          </Button>
+        </div>
+      </div>
+
+      {/* Trust indicators */}
+      <div className="mt-16 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-500">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <span>Stripe-Verified Payments</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Lock className="h-4 w-4 text-primary" />
+          <span>Row-Level Security</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Truck className="h-4 w-4 text-primary" />
+          <span>Order Tracking</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Globe className="h-4 w-4 text-primary" />
+          <span>Multi-Vendor</span>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+const HowItWorks = () => (
+  <section className="py-20 bg-slate-50/60 border-y border-slate-200/50" id="how-it-works">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center max-w-2xl mx-auto mb-16">
+        <h2 className="text-3xl md:text-4xl font-extrabold mb-4 tracking-tight text-slate-900">How VendorTrack Works</h2>
+        <p className="text-slate-600 leading-relaxed">Three roles, one seamless system. Every transaction is tracked from click to payout.</p>
+      </div>
+      <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+        <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-5">
+            <ShoppingCart className="h-5 w-5" />
+          </div>
+          <h3 className="text-lg font-bold mb-2 text-slate-900">Buyers Shop Securely</h3>
+          <p className="text-sm text-slate-500 leading-relaxed">Browse products from multiple sellers, add to cart, and check out with Stripe. Every payment is encrypted and protected by buyer-first policies.</p>
+        </div>
+        <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 bg-green-50 text-green-600 rounded-xl flex items-center justify-center mb-5">
+            <Store className="h-5 w-5" />
+          </div>
+          <h3 className="text-lg font-bold mb-2 text-slate-900">Sellers Manage & Ship</h3>
+          <p className="text-sm text-slate-500 leading-relaxed">List products, track orders, and fulfill shipments from a dedicated dashboard. AI-assisted descriptions and automated payout via Stripe Connect.</p>
+        </div>
+        <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center mb-5">
+            <BarChart3 className="h-5 w-5" />
+          </div>
+          <h3 className="text-lg font-bold mb-2 text-slate-900">Platform Operates with Confidence</h3>
+          <p className="text-sm text-slate-500 leading-relaxed">Complete visibility into GMV, commissions, and seller health. Financial integrity enforced at the database layer with automated reconciliation.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+);
+
+const Features = () => (
+  <section className="py-20" id="features">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center max-w-2xl mx-auto mb-16">
+        <h2 className="text-3xl md:text-4xl font-extrabold mb-4 tracking-tight text-slate-900">Built for Production</h2>
+        <p className="text-slate-600 leading-relaxed">Enterprise-grade infrastructure from day one. No shortcuts.</p>
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[
+          { icon: CreditCard, title: 'Stripe Connect', desc: 'Automated seller payouts with commission splitting. PCI-DSS Level 1 compliance.' },
+          { icon: ShieldCheck, title: 'Row-Level Security', desc: 'Every query is scoped by role. Buyers see products; sellers see their own orders.' },
+          { icon: Truck, title: 'Order Tracking', desc: 'Full lifecycle from cart to delivery. Shipment carriers and tracking numbers logged.' },
+          { icon: Lock, title: 'Financial Integrity', desc: 'Integer-precision cents storage. Zero floating-point drift. Reconciliation built in.' },
+          { icon: Users, title: 'Multi-Vendor', desc: 'Each seller gets their own storefront, product catalog, and payout account.' },
+          { icon: Zap, title: 'AI Product Tools', desc: 'Generate product descriptions and metadata with AI. Higher conversion, less effort.' },
+        ].map(({ icon: Icon, title, desc }) => (
+          <div key={title} className="p-6 rounded-xl border border-slate-200/80 bg-white hover:border-primary/20 transition-colors group">
+            <div className="w-9 h-9 bg-primary/8 text-primary rounded-lg flex items-center justify-center mb-4 group-hover:bg-primary/12 transition-colors">
+              <Icon className="h-4 w-4" />
             </div>
+            <h3 className="font-bold mb-1.5 text-slate-900">{title}</h3>
+            <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
           </div>
-        </div>
+        ))}
       </div>
     </div>
   </section>
 );
 
-const SystemGuarantees = () => (
-  <section className="py-24 bg-white" id="guarantees">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="text-center max-w-3xl mx-auto mb-16">
-        <h2 className="text-3xl md:text-4xl font-extrabold mb-4 tracking-tight">Technical Specifications</h2>
-        <p className="text-slate-600">Operational integrity is enforced at the database layer, not the application layer.</p>
-      </div>
-      <div className="grid md:grid-cols-3 gap-12">
-        <div className="space-y-4">
-          <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-            <Repeat className="h-6 w-6" />
-          </div>
-          <h3 className="text-xl font-bold">Atomic Transactions</h3>
-          <p className="text-slate-500 leading-relaxed text-sm">Fulfillment uses PostgreSQL RPC calls. Inventory checks and order creation succeed as a single unit—eliminating orphan payments.</p>
-        </div>
-        <div className="space-y-4">
-          <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-            <CreditCard className="h-6 w-6" />
-          </div>
-          <h3 className="text-xl font-bold">Financial Precision</h3>
-          <p className="text-slate-500 leading-relaxed text-sm">Eliminate floating-point rounding errors. All values are stored as integers (cents) to ensure 1:1 matching with Stripe balances.</p>
-        </div>
-        <div className="space-y-4">
-          <div className="w-12 h-12 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
-            <Activity className="h-6 w-6" />
-          </div>
-          <h3 className="text-xl font-bold">Forensic Audit Trail</h3>
-          <p className="text-slate-500 leading-relaxed text-sm">Every critical state change is logged with a global trace ID, allowing for full reconstruction of any transactional lifecycle.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-);
-
-const Architecture = () => (
-  <section className="py-24 bg-slate-50 border-y" id="architecture">
+const ForSellers = () => (
+  <section className="py-20 bg-slate-50/60 border-y border-slate-200/50" id="for-sellers">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="grid lg:grid-cols-2 gap-16 items-center">
         <div>
-          <h2 className="text-3xl md:text-4xl font-extrabold mb-6 text-slate-900 tracking-tight">Designed for Reliability</h2>
-          <p className="text-slate-600 mb-10 leading-relaxed">Most marketplaces fail when third-party APIs signal success but internal state hits a race condition. VendorTrack resolves these discrepancies automatically.</p>
-          <div className="space-y-8">
-            <div className="flex gap-4">
-              <div className="shrink-0 w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center border border-primary/10">
-                <Layers className="h-5 w-5 text-primary" />
+          <h2 className="text-3xl md:text-4xl font-extrabold mb-6 text-slate-900 tracking-tight">Everything a seller needs.</h2>
+          <p className="text-slate-600 mb-10 leading-relaxed">From listing your first product to receiving your payout — VendorTrack handles the complexity so you can focus on your business.</p>
+          <div className="space-y-5">
+            {[
+              'Dedicated storefront with custom branding',
+              'AI-powered product description generator',
+              'Real-time order and fulfillment dashboard',
+              'Automated Stripe Connect payouts',
+              'Inventory management with stock alerts',
+              'Complete transaction and shipment history',
+            ].map((text) => (
+              <div key={text} className="flex gap-3 items-center">
+                <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                <p className="text-sm text-slate-700 font-medium">{text}</p>
               </div>
-              <div>
-                <p className="font-bold text-slate-900 text-lg">Background Orchestration</p>
-                <p className="text-sm text-slate-500 mt-1 leading-relaxed">Task-based fulfillment decouples payment capture from inventory updates, ensuring consistency even during high-traffic spikes.</p>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <div className="shrink-0 w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center border border-primary/10">
-                <RotateCcw className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-bold text-slate-900 text-lg">Automated Safety Refunds</p>
-                <p className="text-sm text-slate-500 mt-1 leading-relaxed">If inventory is exhausted during the fulfillment phase, the system automatically triggers a Stripe reversal and logs the event.</p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
-        <div className="relative">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl border-t-4 border-primary">
-            <h3 className="text-2xl font-bold mb-6 text-slate-900">Core Architecture</h3>
-            <div className="space-y-6">
-              {[
-                { label: "Storage Engine", value: "PostgreSQL ACID" },
-                { label: "Payment Model", value: "Stripe Connect Destination" },
-                { label: "Security Layer", value: "Supabase RLS" },
-                { label: "Deployment", value: "Next.js 14 App Router" }
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                  <span className="text-slate-500 font-medium text-sm">{item.label}</span>
-                  <span className="font-bold text-primary text-sm">{item.value}</span>
-                </div>
-              ))}
+        <div className="bg-white p-8 lg:p-10 rounded-2xl shadow-xl border border-slate-200/60">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <span className="text-sm text-slate-500">Marketplace Commission</span>
+              <span className="font-bold text-primary">10%</span>
+            </div>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <span className="text-sm text-slate-500">Payout Schedule</span>
+              <span className="font-bold text-slate-900">Automatic (Stripe)</span>
+            </div>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <span className="text-sm text-slate-500">Payment Processing</span>
+              <span className="font-bold text-slate-900">Stripe Connect</span>
+            </div>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <span className="text-sm text-slate-500">Product Listings</span>
+              <span className="font-bold text-slate-900">Unlimited</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">AI Tools</span>
+              <span className="font-bold text-primary">Included</span>
             </div>
           </div>
+          <Button className="w-full mt-8 h-12 text-base font-semibold rounded-xl" asChild>
+            <Link href="/signup">
+              Create Your Store
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </div>
     </div>
   </section>
 );
 
-const FailureScenario = () => (
-  <section className="py-24 bg-white" id="recovery">
+const CTA = () => (
+  <section className="py-20">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="p-8 md:p-12 bg-slate-900 rounded-[3rem] text-white relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[100px] -mr-32 -mt-32" />
-        <div className="relative z-10 grid lg:grid-cols-2 gap-16 items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-6 border border-amber-500/20">
-              <ShieldAlert className="h-3 w-3" />
-              Operational Integrity
-            </div>
-            <h2 className="text-3xl md:text-4xl font-extrabold mb-6 tracking-tight">Built for Edge-Case Failures.</h2>
-            <p className="text-slate-400 leading-relaxed mb-8">
-              VendorTrack assumes system failures will happen. The core engine is designed to handle "Orphaned Payments" (money captured, no order) by reverting state automatically.
-            </p>
-            <div className="space-y-5">
-              {[
-                "Stripe captures $500.00 from buyer.",
-                "Fulfillment worker detects inventory hit zero.",
-                "System executes atomic rollback of order creation.",
-                "Stripe Refund API triggered via worker idempotency.",
-                "Audit log persists terminal failure for review."
-              ].map((text, i) => (
-                <div key={i} className="flex gap-4 items-center">
-                  <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center shrink-0 text-[10px] font-bold">{i + 1}</div>
-                  <p className="text-sm text-slate-300 font-medium">{text}</p>
-                </div>
-              ))}
-            </div>
+      <div className="bg-slate-900 rounded-3xl px-8 py-16 lg:px-16 lg:py-20 text-center relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-primary/8 blur-[120px] -mr-40 -mt-40" />
+        <div className="relative z-10 max-w-2xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-extrabold mb-6 tracking-tight text-white">Ready to launch your marketplace?</h2>
+          <p className="text-slate-400 mb-10 leading-relaxed">Join sellers already building their business on VendorTrack. Set up your store in minutes.</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button size="lg" className="w-full sm:w-auto h-13 px-8 rounded-xl font-semibold text-base bg-white text-slate-900 hover:bg-slate-100" asChild>
+              <Link href="/signup">
+                Get Started Free
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="w-full sm:w-auto h-13 px-8 rounded-xl font-semibold text-base border-slate-700 text-white hover:bg-slate-800" asChild>
+              <Link href="/login">Sign In</Link>
+            </Button>
           </div>
-          <div className="bg-slate-800 p-6 rounded-2xl border border-white/10 shadow-3xl font-mono text-[11px]">
-             <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
-               <div className="flex items-center gap-2">
-                 <div className="h-2 w-2 rounded-full bg-green-500" />
-                 <span className="text-slate-400">RECONCILIATION_LOG</span>
-               </div>
-               <span className="text-primary uppercase">Trace: 88fa-12x9</span>
-             </div>
-             <div className="space-y-4">
-               <p className="text-slate-500">INFO: Payment captured (pi_3O8s...)</p>
-               <p className="text-amber-500">WARN: Inventory exhausted (SKU: P-102)</p>
-               <p className="text-primary font-bold">INIT: Auto-refund (Session ID: s_982)</p>
-               <p className="text-green-400 font-bold">SUCCESS: Refund processed. State synchronized.</p>
-             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-);
-
-const DemoFlow = () => (
-  <section className="py-24 bg-white" id="demo">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 className="text-3xl font-extrabold mb-4 text-slate-900 tracking-tight">Interactive Sandbox</h2>
-      <p className="text-slate-600 mb-16 max-w-2xl mx-auto leading-relaxed">Evaluate the system from three operational perspectives. This environment simulates production transactional flows using a controlled dataset.</p>
-      
-      <div className="grid md:grid-cols-3 gap-8">
-        <div className="bg-white p-8 rounded-2xl border border-slate-100 text-left hover:shadow-xl transition-all group">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-6">
-             <CreditCard className="h-6 w-6" />
-          </div>
-          <h3 className="text-xl font-bold mb-2">The Buyer</h3>
-          <p className="text-sm text-slate-500 mb-8 leading-relaxed font-medium">Audit the session-locked checkout flow. Verify that prices are locked at session creation to prevent pricing exploits.</p>
-          <Button variant="outline" className="w-full h-11" asChild>
-            <Link href="/login">Launch Buyer View</Link>
-          </Button>
-        </div>
-
-        <div className="bg-white p-8 rounded-2xl border border-slate-100 text-left hover:shadow-xl transition-all group">
-          <div className="w-12 h-12 bg-green-50 text-green-600 rounded-lg flex items-center justify-center mb-6">
-            <LayoutDashboard className="h-6 w-6" />
-          </div>
-          <h3 className="text-xl font-bold mb-2">The Seller</h3>
-          <p className="text-sm text-slate-500 mb-8 leading-relaxed font-medium">Manage inventory and fulfillment logs. Test the integrated GenAI nodes for automated metadata generation.</p>
-          <Button variant="outline" className="w-full h-11" asChild>
-            <Link href="/login">Launch Seller View</Link>
-          </Button>
-        </div>
-
-        <div className="bg-white p-8 rounded-2xl border border-slate-100 text-left hover:shadow-xl transition-all group">
-          <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center mb-6">
-            <ShieldCheck className="h-6 w-6" />
-          </div>
-          <h3 className="text-xl font-bold mb-2">The Administrator</h3>
-          <p className="text-sm text-slate-500 mb-8 leading-relaxed font-medium">Monitor platform GMV yield andCaptured earnings. Audit the forensic event ledger for system transparency.</p>
-          <Button variant="outline" className="w-full h-11" asChild>
-            <Link href="/login">Launch Mission Control</Link>
-          </Button>
         </div>
       </div>
     </div>
@@ -276,28 +237,40 @@ const DemoFlow = () => (
 );
 
 const Footer = () => (
-  <footer className="py-12 bg-white border-t">
+  <footer className="py-12 bg-white border-t border-slate-200/60">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <Database className="text-white h-5 w-5" />
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 mb-12">
+        <div className="sm:col-span-2 lg:col-span-1">
+          <Logo size="sm" />
+          <p className="text-sm text-slate-500 mt-3 max-w-xs leading-relaxed">The multi-vendor marketplace platform built for trust, scale, and financial integrity.</p>
+        </div>
+        <div>
+          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">Platform</h4>
+          <div className="space-y-2.5">
+            <Link className="block text-sm text-slate-500 hover:text-primary transition-colors" href="/products">Marketplace</Link>
+            <Link className="block text-sm text-slate-500 hover:text-primary transition-colors" href="/signup">Start Selling</Link>
+            <Link className="block text-sm text-slate-500 hover:text-primary transition-colors" href="/help">Documentation</Link>
           </div>
-          <span className="text-xl font-extrabold tracking-tight text-slate-900">VendorTrack<span className="text-primary">.</span></span>
         </div>
-        <div className="text-center md:text-left">
-           <p className="text-[10px] text-muted-foreground mb-1 font-bold uppercase tracking-widest">
-            Production Core v3.0 / Supabase / Stripe Connect
-           </p>
-           <div className="text-slate-500 text-xs">
-            © 2024 VendorTrack. Technical Core for Marketplaces.
-           </div>
+        <div>
+          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">Legal</h4>
+          <div className="space-y-2.5">
+            <Link className="block text-sm text-slate-500 hover:text-primary transition-colors" href="/privacy-policy">Privacy Policy</Link>
+            <Link className="block text-sm text-slate-500 hover:text-primary transition-colors" href="/terms">Terms of Service</Link>
+          </div>
         </div>
-        <div className="flex gap-6 text-slate-500 text-sm font-semibold">
-          <Link className="hover:text-primary transition-colors" href="/privacy-policy">Privacy</Link>
-          <Link className="hover:text-primary transition-colors" href="/terms">Terms</Link>
-          <Link className="hover:text-primary transition-colors" href="/help">Docs</Link>
+        <div>
+          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">Infrastructure</h4>
+          <div className="space-y-2.5">
+            <span className="block text-sm text-slate-500">Next.js 14 + Supabase</span>
+            <span className="block text-sm text-slate-500">Stripe Connect</span>
+            <span className="block text-sm text-slate-500">PostgreSQL + RLS</span>
+          </div>
         </div>
+      </div>
+      <div className="border-t border-slate-200/60 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <p className="text-xs text-slate-400">&copy; {new Date().getFullYear()} VendorTrack. All rights reserved.</p>
+        <p className="text-xs text-slate-400">Powered by Stripe &middot; Supabase &middot; Next.js</p>
       </div>
     </div>
   </footer>
@@ -309,10 +282,10 @@ export default function Home() {
       <Header />
       <main>
         <Hero />
-        <SystemGuarantees />
-        <Architecture />
-        <FailureScenario />
-        <DemoFlow />
+        <HowItWorks />
+        <Features />
+        <ForSellers />
+        <CTA />
       </main>
       <Footer />
     </>

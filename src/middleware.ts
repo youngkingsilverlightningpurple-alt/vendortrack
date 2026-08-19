@@ -115,7 +115,7 @@ export async function middleware(request: NextRequest) {
     const rateLimitConfig = RATE_LIMITS[rateLimitKey];
     const identifier = getClientIdentifier(request);
 
-    const rateLimitResult = checkRateLimit(rateLimitConfig, identifier);
+    const rateLimitResult = await checkRateLimit(rateLimitConfig, identifier);
 
     if (!rateLimitResult.allowed) {
       // Log rate limit event

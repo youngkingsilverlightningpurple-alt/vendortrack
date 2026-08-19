@@ -1,2 +1,9 @@
 User-agent: *
 Allow: /
+Disallow: /admin-dashboard/
+Disallow: /seller-dashboard/
+Disallow: /api/
+Disallow: /checkout
+Disallow: /cart
+
+Sitemap: https://vendortrack.app/sitemap.xml

@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { BookOpen, Server, CreditCard, ShieldAlert, Cpu } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'System Documentation | VendorTrack Infrastructure',
+  title: 'Help & Documentation',
+  description: 'VendorTrack help center — guides for buyers, sellers, and platform administrators.',
 };
 
 export default function HelpPage() {
@@ -22,8 +23,8 @@ export default function HelpPage() {
             <BookOpen className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight">System Documentation</h1>
-            <p className="text-muted-foreground uppercase text-xs font-bold tracking-[0.2em] mt-1">Operational Manual & Architecture Overview</p>
+            <h1 className="text-3xl font-extrabold tracking-tight">Help & Documentation</h1>
+            <p className="text-muted-foreground text-sm mt-1">Guides for buyers, sellers, and platform administrators.</p>
           </div>
         </div>
 
@@ -90,7 +91,7 @@ export default function HelpPage() {
                 </div>
               </div>
               <p className="mt-6 text-[10px] text-slate-500 leading-relaxed italic">
-                Monitor these flags in your mission control dashboard to ensure 100% platform reliability.
+                Monitor these flags in your admin dashboard to ensure 100% platform reliability.
               </p>
             </div>
 
@@ -106,7 +107,7 @@ export default function HelpPage() {
 
         <div className="text-center mt-16 pt-8 border-t">
           <Button variant="ghost" asChild>
-            <Link href="/">Return to Mission Control Overview</Link>
+            <Link href="/">Return to Overview</Link>
           </Button>
         </div>
       </div>

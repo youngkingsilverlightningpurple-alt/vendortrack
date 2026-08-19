@@ -201,9 +201,29 @@ async function executeStripeRefund(
     orderId,
   });
 
+  // P0 FIX (war room): idempotency key.
+  //
+  // Without an idempotency key, `withRetry` would call
+  // `stripe.refunds.create` up to 4 times — and each call creates a NEW
+  // Stripe Refund object. A single network blip during a retry could
+  // double-refund the seller.
+  //
+  // The key is deterministic per (order, refund operation). If `withRetry`
+  // re-invokes the closure, Stripe recognizes the idempotency key and
+  // returns the ORIGINAL refund object instead of creating a duplicate.
+  //
+  // Format: `refund:{orderId}:{traceId}`
+  //   - Same order + same trace_id → same refund (idempotent retry)
+  //   - Different trace_id → different refund (independent operation, e.g.
+  //     a partial refund followed by a second partial refund)
+  //   - Different order → different refund (independent operation)
+  const idempotencyKey = `refund:${orderId}:${traceId}`;
+
   const retryResult = await withRetry(
     async () => {
-      const refund = await stripe.refunds.create(refundParams);
+      const refund = await stripe.refunds.create(refundParams, {
+        idempotencyKey,
+      });
 
       // Verify the refund status
       if (refund.status === 'failed') {

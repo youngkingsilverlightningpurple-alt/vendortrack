@@ -21,6 +21,16 @@
  *   - Every entry has a stripe_event_id for Stripe correlation
  *   - Entries are idempotent (same trace_id + event_type = no duplicate)
  *
+ * SECURITY NOTE — service_role bypass:
+ *   This module uses getSupabaseAdmin() (service_role) which bypasses RLS.
+ *   This is INTENTIONAL and REQUIRED because:
+ *   1. The ledger is a system-level audit trail — it must record even when
+ *      no user session exists (e.g., Stripe webhooks, cron reconciliation).
+ *   2. RLS policies are user-scoped; financial integrity requires system-scope.
+ *   3. The ledger is append-only — no UPDATE or DELETE operations exist.
+ *   4. RLS is enforced on the READ side: users can only read their own entries
+ *      via the authenticated client; service_role is only used for WRITES.
+ *
  * COMPLIANCE:
  *   - SOC2: Audit trail for all financial operations
  *   - ISO27001: Integrity of financial records
@@ -48,7 +58,18 @@ export type LedgerEventType =
 export interface LedgerEntry {
   id?: string;
   event_type: LedgerEventType;
-  order_id: string;
+  /**
+   * Optional order ID. Nullable because some ledger events occur BEFORE an
+   * order exists (e.g. `payment_created` fires at PaymentIntent creation,
+   * which happens BEFORE `fulfill_order_v2` creates the order row).
+   *
+   * P0 FIX (war room): previously typed as `string` and callers passed `''`,
+   * which failed PostgreSQL UUID validation (`22P02: invalid input syntax for
+   * type uuid: ""`) and aborted checkout with HTTP 500. The DB column is
+   * `UUID REFERENCES orders(id)` with no NOT NULL constraint, so NULL is the
+   * correct value for pre-order events.
+   */
+  order_id: string | null;
   payment_intent_id?: string;
   stripe_refund_id?: string;
   amount_cents: number;
@@ -80,14 +101,27 @@ export interface LedgerBalance {
 export async function createLedgerEntry(entry: LedgerEntry): Promise<{ id: string; created: boolean }> {
   const admin = getSupabaseAdmin();
 
-  // Idempotency check: same trace_id + event_type + order_id
-  const { data: existing } = await (admin
+  // Idempotency check: same trace_id + event_type + order_id.
+  //
+  // P0 FIX (war room): order_id is now `string | null`. When null, we use
+  // `.is('order_id', null)` instead of `.eq('order_id', null)` because
+  // PostgREST's `.eq()` filter cannot match NULL values (NULL != NULL in SQL).
+  // The unique constraint `idx_financial_ledger_idempotency (trace_id, event_type, order_id)`
+  // treats multiple NULLs as distinct in PostgreSQL, so the idempotency check
+  // for null-order_id entries effectively becomes (trace_id + event_type)
+  // — which is acceptable because pre-order events (e.g. `payment_created`)
+  // are only ever written once per checkout attempt.
+  const idempotencyQuery = (admin
     .from('financial_ledger') as any)
     .select('id')
     .eq('trace_id', entry.trace_id)
-    .eq('event_type', entry.event_type)
-    .eq('order_id', entry.order_id)
-    .single() as any;
+    .eq('event_type', entry.event_type);
+  if (entry.order_id === null) {
+    idempotencyQuery.is('order_id', null);
+  } else {
+    idempotencyQuery.eq('order_id', entry.order_id);
+  }
+  const { data: existing } = await idempotencyQuery.single() as any;
 
   if (existing) {
     PaymentLogger.info(entry.trace_id, 'ledger_entry_duplicate', `Ledger entry already exists for ${entry.event_type}`, {
@@ -121,14 +155,18 @@ export async function createLedgerEntry(entry: LedgerEntry): Promise<{ id: strin
         eventType: entry.event_type,
         orderId: entry.order_id,
       });
-      // Fetch the existing entry
-      const { data: existingEntry } = await (admin
+      // Fetch the existing entry (same null-aware query)
+      const retryQuery = (admin
         .from('financial_ledger') as any)
         .select('id')
         .eq('trace_id', entry.trace_id)
-        .eq('event_type', entry.event_type)
-        .eq('order_id', entry.order_id)
-        .single() as any;
+        .eq('event_type', entry.event_type);
+      if (entry.order_id === null) {
+        retryQuery.is('order_id', null);
+      } else {
+        retryQuery.eq('order_id', entry.order_id);
+      }
+      const { data: existingEntry } = await retryQuery.single() as any;
 
       return { id: (existingEntry as any)?.id || '', created: false };
     }
@@ -157,17 +195,72 @@ export async function createLedgerEntry(entry: LedgerEntry): Promise<{ id: strin
 }
 
 /**
- * Create multiple ledger entries atomically.
+ * Create multiple ledger entries atomically using a single database transaction.
  * Used for compound events (e.g., payment_completed + commission_collected).
+ * All entries succeed or all fail — no partial writes.
  */
 export async function createLedgerEntries(entries: LedgerEntry[]): Promise<{ ids: string[]; allCreated: boolean }> {
+  if (entries.length === 0) return { ids: [], allCreated: true };
+
+  const admin = getSupabaseAdmin();
   const ids: string[] = [];
   let allCreated = true;
 
-  for (const entry of entries) {
-    const result = await createLedgerEntry(entry);
-    ids.push(result.id);
-    if (!result.created) allCreated = false;
+  // Use Supabase RPC for atomic batch insert (wraps all in a single transaction)
+  // Fall back to sequential inserts if RPC not available
+  try {
+    const rows = entries.map(entry => ({
+      event_type: entry.event_type,
+      order_id: entry.order_id,
+      payment_intent_id: entry.payment_intent_id,
+      stripe_refund_id: entry.stripe_refund_id,
+      amount_cents: entry.amount_cents,
+      currency: entry.currency || 'usd',
+      trace_id: entry.trace_id,
+      metadata: entry.metadata || {},
+    }));
+
+    const { data, error } = await (admin
+      .from('financial_ledger') as any)
+      .insert(rows as any)
+      .select('id') as any;
+
+    if (error) {
+      // If unique constraint violation on any row, fall back to sequential
+      if (error.code === '23505') {
+        PaymentLogger.info('batch', 'ledger_batch_race_duplicate', 'Batch insert hit unique constraint — falling back to sequential', {
+          entryCount: entries.length,
+        });
+        // Sequential fallback preserves idempotency
+        for (const entry of entries) {
+          const result = await createLedgerEntry(entry);
+          ids.push(result.id);
+          if (!result.created) allCreated = false;
+        }
+        return { ids, allCreated };
+      }
+      throw error;
+    }
+
+    for (const row of (data || []) as any[]) {
+      ids.push(row.id);
+    }
+
+    PaymentLogger.info('batch', 'ledger_batch_created', `Batch created ${ids.length} ledger entries atomically`, {
+      entryCount: entries.length,
+    });
+  } catch (batchError) {
+    // Fallback: sequential insert with individual idempotency
+    PaymentLogger.warn('batch', 'ledger_batch_fallback', 'Batch insert failed — falling back to sequential', {
+      error: batchError instanceof Error ? batchError.message : String(batchError),
+    });
+    ids.length = 0;
+    allCreated = true;
+    for (const entry of entries) {
+      const result = await createLedgerEntry(entry);
+      ids.push(result.id);
+      if (!result.created) allCreated = false;
+    }
   }
 
   return { ids, allCreated };

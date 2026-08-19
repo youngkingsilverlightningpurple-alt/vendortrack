@@ -105,8 +105,14 @@ BEGIN
     RAISE EXCEPTION 'Session not found or already processed';
   END IF;
 
-  -- 2. Calculate TOTAL Commission (10%) — single source of truth
-  v_total_commission := ROUND(v_amount_cents * 0.10);
+  -- 2. Calculate TOTAL Commission — configurable via PLATFORM_COMMISSION_RATE env var
+  -- Default is 10% (0.10). Override with: SET app.platform_commission_rate = '0.15';
+  DECLARE
+    v_commission_rate NUMERIC := COALESCE(
+      current_setting('app.platform_commission_rate', true)::NUMERIC, 0.10
+    );
+  BEGIN
+  v_total_commission := ROUND(v_amount_cents * v_commission_rate);
 
   -- 3. Collect items into arrays for commission distribution
   v_items_arr := ARRAY(SELECT jsonb_array_elements((SELECT items FROM payment_sessions WHERE id = p_session_id)));
@@ -119,8 +125,8 @@ BEGIN
     v_item := v_items_arr[v_idx];
     v_item_cents := ((v_item->>'p_cents')::INTEGER) * ((v_item->>'q')::INTEGER);
     v_item_amounts := array_append(v_item_amounts, v_item_cents);
-    v_floored_commissions := array_append(v_floored_commissions, FLOOR(v_item_cents * 0.10)::INTEGER);
-    v_remainders := array_append(v_remainders, (v_item_cents * 0.10) - FLOOR(v_item_cents * 0.10));
+    v_floored_commissions := array_append(v_floored_commissions, FLOOR(v_item_cents * v_commission_rate)::INTEGER);
+    v_remainders := array_append(v_remainders, (v_item_cents * v_commission_rate) - FLOOR(v_item_cents * v_commission_rate));
   END LOOP;
 
   -- 4. Distribute remaining cents using Largest Remainder Method

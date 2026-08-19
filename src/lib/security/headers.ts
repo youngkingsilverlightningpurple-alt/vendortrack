@@ -51,7 +51,7 @@ function buildCSP(nonce?: string): string {
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
 
     // Images: self + whitelisted domains + data URIs for avatars
-    `img-src 'self' data: blob: https://placehold.co https://images.unsplash.com https://picsum.photos https://lh3.googleusercontent.com https://*.supabase.co`,
+    `img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.supabase.co`,
 
     // Fonts: self + Google Fonts
     `font-src 'self' https://fonts.gstatic.com`,

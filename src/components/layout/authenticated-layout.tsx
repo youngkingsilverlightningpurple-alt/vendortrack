@@ -29,26 +29,17 @@ import {
   LayoutDashboard,
   LogOut,
   Package as PackageIcon,
-  Menu,
   ShoppingBag,
   Settings,
   Store,
   ShoppingCart,
-  Users,
   ShieldCheck,
-  Zap,
-  RotateCcw,
-  Search,
-  CreditCard,
-  RefreshCw,
-  Server,
-  Database,
 } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BottomNav } from "./bottom-nav";
-import { Badge } from "@/components/ui/badge";
+
 
 type Profile = {
   role: 'buyer' | 'seller';
@@ -94,12 +85,13 @@ export default function AuthenticatedLayout({
 
   if (isAuthLoading || isProfileLoading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center animate-pulse">
-                <Database className="text-white h-6 w-6" />
+            <Logo size="lg" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span>Loading...</span>
             </div>
-            <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary font-bold">Synchronizing...</span>
         </div>
       </div>
     );
@@ -110,7 +102,7 @@ export default function AuthenticatedLayout({
 
   return (
     <SidebarProvider>
-      <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-blue-500 to-primary z-[60]" />
+
       <Sidebar className="border-r border-primary/5">
         <SidebarHeader className="border-b border-primary/5 px-4 h-16 flex justify-center">
           <Logo />
@@ -120,11 +112,11 @@ export default function AuthenticatedLayout({
             {isAdmin && (
               <>
                 <div className="px-4 py-4 text-[10px] font-extrabold text-primary uppercase tracking-[0.2em] opacity-70">
-                  Mission Control
+                  Admin
                 </div>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === '/admin-dashboard'}>
-                    <Link href="/admin-dashboard"><ShieldCheck className="text-primary" /><span>Operational Health</span></Link>
+                    <Link href="/admin-dashboard"><ShieldCheck className="text-primary" /><span>Dashboard</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <div className="my-2 border-t mx-3" />
@@ -134,7 +126,7 @@ export default function AuthenticatedLayout({
             {isSeller ? (
               <>
                 <div className="px-4 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">
-                  Vendor Portal
+                  Seller
                 </div>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === '/seller-dashboard'}>
@@ -143,33 +135,33 @@ export default function AuthenticatedLayout({
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname.startsWith("/seller-dashboard/products")}>
-                    <Link href="/seller-dashboard/products"><ShoppingBag /><span>Inventory</span></Link>
+                    <Link href="/seller-dashboard/products"><ShoppingBag /><span>Products</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname.startsWith("/seller-dashboard/orders")}>
-                    <Link href="/seller-dashboard/orders"><PackageIcon /><span>Transactions</span></Link>
+                    <Link href="/seller-dashboard/orders"><PackageIcon /><span>Orders</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </>
             ) : (
               <>
                 <div className="px-4 py-4 text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">
-                  Marketplace
+                  Shop
                 </div>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname.startsWith("/products")}>
-                    <Link href="/products"><Store /><span>Active Catalog</span></Link>
+                    <Link href="/products"><Store /><span>Marketplace</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname.startsWith("/buyer-orders")}>
-                    <Link href="/buyer-orders"><PackageIcon /><span>My Purchase Ledger</span></Link>
+                    <Link href="/buyer-orders"><PackageIcon /><span>Orders</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === "/cart"}>
-                    <Link href="/cart"><ShoppingCart /><span>Transactional Cart</span></Link>
+                    <Link href="/cart"><ShoppingCart /><span>Cart</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </>
@@ -177,11 +169,6 @@ export default function AuthenticatedLayout({
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="border-t border-primary/5 p-4">
-          <div className="mb-4">
-            <Badge variant="outline" className="w-full justify-center bg-primary/5 text-primary border-primary/20 text-[9px] font-bold uppercase tracking-widest py-1">
-                Sandbox Environment
-            </Badge>
-          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex w-full items-center justify-start gap-3 p-3 h-14 bg-muted/30 hover:bg-muted/50 rounded-xl transition-all border border-transparent hover:border-primary/10">
@@ -192,7 +179,7 @@ export default function AuthenticatedLayout({
                 </Avatar>
                 <div className="flex flex-col items-start overflow-hidden">
                   <span className="text-[10px] font-bold text-slate-900 truncate w-full">{user?.email}</span>
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Verified Session</span>
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">{isSeller ? 'Seller' : 'Buyer'}</span>
                 </div>
               </Button>
             </DropdownMenuTrigger>
@@ -201,13 +188,13 @@ export default function AuthenticatedLayout({
               <DropdownMenuItem asChild>
                 <Link href={isSeller ? "/seller-dashboard/settings" : "/"} className="rounded-lg">
                     <Settings className="mr-2 h-4 w-4" />
-                    <span>Preferences</span>
+                    <span>Settings</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive rounded-lg">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Terminate Session</span>
+                <span>Sign Out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

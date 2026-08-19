@@ -199,6 +199,21 @@ export async function createCheckoutSession(
   });
 
   // Step 9: Create Stripe PaymentIntent
+  //
+  // P0 FIX (war room): idempotency key.
+  // Stripe recommends idempotency keys for ALL mutating operations
+  // (https://stripe.com/docs/api/idempotent_requests). Without one, a network
+  // blip between Stripe returning 200 and our SDK receiving the response
+  // would cause a retry to create a SECOND PaymentIntent for the same cart,
+  // double-charging the buyer.
+  //
+  // The key is deterministic: `checkout:{sessionId}`. This is safe because:
+  //   - `sessionId` is unique per checkout attempt (created in step 8 above)
+  //   - `cancelStaleSessions` only cancels EXPIRED sessions (P0 fix in
+  //     payment-session-repository.ts), so a live pending session is never
+  //     re-used for a different cart
+  //   - If the buyer starts a NEW checkout (different cart), they get a NEW
+  //     session ID, which produces a NEW idempotency key — independent operation
   const stripe = getStripe();
   const paymentIntent = await stripe.paymentIntents.create({
     amount: totalCents,
@@ -212,12 +227,24 @@ export async function createCheckoutSession(
       commissionRate: COMMISSION_RATE.toString(),
       itemCount: sessionItems.length.toString(),
     },
+  }, {
+    idempotencyKey: `checkout:${session.id}`,
   });
 
   // Step 10: Create financial ledger entry
+  //
+  // P0 FIX (war room): order_id is NULLABLE.
+  // The previous code passed `order_id: ''` (empty string), which failed
+  // PostgreSQL UUID validation and aborted every checkout with HTTP 500.
+  // The order row does NOT exist yet — it is created atomically by
+  // `fulfill_order_v2` when the Stripe webhook fires `payment_intent.succeeded`.
+  // The DB column `financial_ledger.order_id` is `UUID REFERENCES orders(id)`
+  // with no NOT NULL constraint, so NULL is the correct value for this
+  // pre-order event. The `payment_completed` and `commission_collected`
+  // entries (written by `fulfill_order_v2`) will carry the real order_id.
   await createLedgerEntry({
     event_type: 'payment_created',
-    order_id: '',
+    order_id: null,
     payment_intent_id: paymentIntent.id,
     amount_cents: totalCents,
     currency: 'usd',

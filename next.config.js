@@ -11,17 +11,11 @@ const nextConfig = {
   },
   // Standalone output for Docker — produces minimal server bundle
   output: 'standalone',
-  experimental: {
-    // NOTE: instrumentationHook is now enabled by default in Next.js 14+
-    // serverComponentsExternalPackages moved to top-level in Next.js 14.2+
-  },
-  // Move serverComponentsExternalPackages to top-level (Next.js 14.2+)
+  // serverComponentsExternalPackages at top-level (Next.js 14.2+)
   serverExternalPackages: ['stripe'],
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'placehold.co', port: '', pathname: '/**' },
-      { protocol: 'https', hostname: 'images.unsplash.com', port: '', pathname: '/**' },
-      { protocol: 'https', hostname: 'picsum.photos', port: '', pathname: '/**' },
+      { protocol: 'https', hostname: '*.supabase.co', port: '', pathname: '/**' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com', port: '', pathname: '/**' },
     ],
     // Image optimization settings

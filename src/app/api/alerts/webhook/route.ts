@@ -1,45 +1,29 @@
 /**
  * @fileoverview Alertmanager Webhook Receiver
  *
- * Receives alerts from Prometheus Alertmanager and logs them.
- * This endpoint is required by the monitoring stack.
+ * Receives alerts from Prometheus Alertmanager and logs them
+ * for operational visibility. This endpoint is called by
+ * Alertmanager when alerts fire or resolve.
  *
- * SECURITY: Protected by ALERTMANAGER_SECRET or CRON_SECRET.
- * Alertmanager sends webhooks here when alert rules fire.
+ * SECURITY: Requires ALERTMANAGER_SECRET bearer token.
+ *           Alerts are logged but no state-modifying actions are taken.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('alertmanager-webhook');
 
 export const dynamic = 'force-dynamic';
 
-interface AlertmanagerAlert {
-  status: 'firing' | 'resolved';
-  labels: Record<string, string>;
-  annotations: Record<string, string>;
-  startsAt: string;
-  endsAt: string;
-  generatorURL: string;
-  fingerprint: string;
-}
-
-interface AlertmanagerWebhookPayload {
-  receiver: string;
-  status: 'firing' | 'resolved';
-  alerts: AlertmanagerAlert[];
-  groupLabels: Record<string, string>;
-  commonLabels: Record<string, string>;
-  commonAnnotations: Record<string, string>;
-  externalURL: string;
-  version: string;
-  groupKey: string;
-  truncatedAlerts: number;
-}
-
-function verifyWebhookRequest(request: NextRequest): boolean {
-  const secret = process.env.ALERTMANAGER_SECRET || process.env.CRON_SECRET;
+/**
+ * Verify the Alertmanager bearer token.
+ * Fail-closed: if ALERTMANAGER_SECRET is not set, deny all requests.
+ */
+function verifyAlertmanagerAuth(request: NextRequest): boolean {
+  const secret = process.env.ALERTMANAGER_SECRET;
   if (!secret) {
-    // Fail-closed: deny access when no secret is configured
-    console.error('[Alerts] No ALERTMANAGER_SECRET or CRON_SECRET configured — webhook denied');
+    // SECURITY: No secret configured — deny all access
     return false;
   }
   const authHeader = request.headers.get('authorization');
@@ -47,55 +31,57 @@ function verifyWebhookRequest(request: NextRequest): boolean {
 }
 
 export async function POST(request: NextRequest) {
-  // Verify authorization
-  if (!verifyWebhookRequest(request)) {
+  // Step 1: Verify authentication
+  if (!verifyAlertmanagerAuth(request)) {
+    log.warn('Alertmanager webhook received without valid authentication');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Step 2: Parse the Alertmanager payload
+  let payload: unknown;
   try {
-    const payload: AlertmanagerWebhookPayload = await request.json();
-
-    // Process each alert
-    for (const alert of payload.alerts) {
-      const logLevel = alert.status === 'firing' ? 'error' : 'info';
-      const message = `[Alert ${alert.status.toUpperCase()}] ${alert.labels.alertname || 'unknown'} — severity: ${alert.labels.severity || 'unknown'}`;
-
-      if (logLevel === 'error') {
-        console.error(message, {
-          labels: alert.labels,
-          annotations: alert.annotations,
-          startsAt: alert.startsAt,
-          fingerprint: alert.fingerprint,
-        });
-      } else {
-        console.info(message, {
-          labels: alert.labels,
-          fingerprint: alert.fingerprint,
-        });
-      }
-    }
-
-    return NextResponse.json({
-      status: 'ok',
-      processed: payload.alerts.length,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('[Alerts] Webhook processing failed:', error);
-    return NextResponse.json(
-      { error: 'Invalid webhook payload' },
-      { status: 400 }
-    );
+    payload = await request.json();
+  } catch {
+    log.warn('Alertmanager webhook received invalid JSON payload');
+    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
-}
 
-// Health check for the webhook endpoint
-export async function GET() {
-  const secretConfigured = !!(process.env.ALERTMANAGER_SECRET || process.env.CRON_SECRET);
-  return NextResponse.json({
-    status: 'ok',
-    endpoint: '/api/alerts/webhook',
-    authConfigured: secretConfigured,
-    timestamp: new Date().toISOString(),
-  });
+  // Step 3: Log the alert for operational visibility
+  const alerts = (payload as any)?.alerts || [];
+  const status = (payload as any)?.status || 'unknown';
+  const groupKey = (payload as any)?.groupKey || 'unknown';
+
+  if (status === 'firing') {
+    for (const alert of alerts) {
+      log.error('Alert firing', {
+        action: 'alert_firing',
+        data: {
+          alertName: alert.labels?.alertname,
+          severity: alert.labels?.severity,
+          summary: alert.annotations?.summary,
+          startsAt: alert.startsAt,
+          groupKey,
+        },
+      });
+    }
+  } else if (status === 'resolved') {
+    for (const alert of alerts) {
+      log.info('Alert resolved', {
+        action: 'alert_resolved',
+        data: {
+          alertName: alert.labels?.alertname,
+          severity: alert.labels?.severity,
+          endsAt: alert.endsAt,
+          groupKey,
+        },
+      });
+    }
+  } else {
+    log.info('Alertmanager webhook received', {
+      action: 'alert_webhook',
+      data: { status, groupKey, alertCount: alerts.length },
+    });
+  }
+
+  return NextResponse.json({ received: true });
 }
