@@ -16,6 +16,7 @@ import { requireEnv } from '@/lib/env';
 import { PaymentLogger } from '@/lib/payment/errors';
 import { createLedgerEntry } from '@/lib/payment/ledger-service';
 import { enqueueJob } from '@/lib/payment/queue';
+import { handleAccountUpdated } from '@/lib/payment/connect-service';
 import { getErrorMessage } from '@/types';
 import { paymentSessionRepository } from '@/repositories/payment-session-repository';
 import { orderRepository } from '@/repositories/order-repository';
@@ -129,6 +130,17 @@ export async function POST(req: Request) {
     await handlePaymentIntentFailed(event, traceId);
   } else if (event.type === 'charge.dispute.created') {
     await handleDisputeCreated(event, traceId);
+  } else if (event.type === 'account.updated') {
+    // P0 FIX (war room): handle Stripe Connect account status changes.
+    // This event fires when:
+    //   - Seller completes Connect onboarding
+    //   - Stripe verifies the seller's identity
+    //   - Stripe disables the seller's account (fraud, KYC failure)
+    //   - Seller's payouts become enabled/disabled
+    // Without this handler, the platform would keep routing charges to
+    // disabled accounts and never know about seller onboarding completion.
+    const account = event.data.object as Stripe.Account;
+    await handleAccountUpdated(account, traceId);
   } else {
     PaymentLogger.info(traceId, 'webhook_unhandled', `Unhandled event type: ${event.type}`, {
       eventId: event.id,

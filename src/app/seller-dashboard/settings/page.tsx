@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Image from 'next/image';
-import { Loader2, CheckCircle2, AlertCircle, Share2, Copy } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Share2, Copy, CreditCard, ExternalLink } from 'lucide-react';
 import AuthenticatedLayout from '@/components/layout/authenticated-layout';
 import {
   Card,
@@ -52,6 +52,13 @@ export default function SettingsPage() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // P0 FIX (war room): Stripe Connect onboarding state.
+  // The audit identified that the seller settings page said "Connect Stripe
+  // to enable public listings" but had NO button anywhere. The
+  // `handleConnectStripe` function calls the new
+  // `/api/stripe/connect/onboard` endpoint which generates a real Stripe
+  // Connect onboarding URL.
+  const [isConnectingStripe, setIsConnectingStripe] = useState(false);
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
@@ -98,6 +105,57 @@ export default function SettingsPage() {
     const link = `${window.location.origin}/signup?ref=${profile.referralCode}`;
     navigator.clipboard.writeText(link);
     toast({ title: "Link Copied!" });
+  };
+
+  // P0 FIX (war room): Stripe Connect onboarding handler.
+  // Calls /api/stripe/connect/onboard which:
+  //   1. Creates a Stripe Express Connect account (if not exists)
+  //   2. Generates an onboarding URL
+  //   3. Returns the URL for the client to redirect to
+  // After the seller completes onboarding on Stripe, they're redirected
+  // back to this page with ?stripe_onboarding=complete, and Stripe fires
+  // the `account.updated` webhook which syncs the connection status.
+  const handleConnectStripe = async () => {
+    setIsConnectingStripe(true);
+    try {
+      const response = await fetch('/api/stripe/connect/onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || data.error || 'Failed to start Stripe Connect onboarding');
+      }
+
+      if (data.alreadyConnected) {
+        toast({
+          title: "Stripe Connected",
+          description: "Your Stripe account is already fully set up.",
+        });
+        return;
+      }
+
+      if (data.url) {
+        // Redirect seller to Stripe-hosted onboarding UI
+        toast({
+          title: "Redirecting to Stripe",
+          description: "Complete your Stripe Connect setup. You'll be returned here when done.",
+        });
+        // Use window.location for a full-page redirect (external URL)
+        window.location.href = data.url;
+      } else {
+        throw new Error('No onboarding URL returned from server');
+      }
+    } catch (error: unknown) {
+      toast({
+        variant: "destructive",
+        title: "Connection Failed",
+        description: getErrorMessage(error),
+      });
+    } finally {
+      setIsConnectingStripe(false);
+    }
   };
 
   const onSubmit = async (data: SettingsFormValues) => {
@@ -157,11 +215,37 @@ export default function SettingsPage() {
                   <AlertDescription className="text-green-700">Authorized to receive real-time payments minus 10% fee.</AlertDescription>
                 </Alert>
               ) : (
-                <Alert variant="destructive" className="bg-white border-amber-200 text-amber-900">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                  <AlertTitle>Action Required</AlertTitle>
-                  <AlertDescription className="text-amber-700">Connect Stripe to enable public listings.</AlertDescription>
-                </Alert>
+                <div className="space-y-3">
+                  <Alert variant="destructive" className="bg-white border-amber-200 text-amber-900">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle>Action Required</AlertTitle>
+                    <AlertDescription className="text-amber-700">Connect Stripe to enable payouts and public listings.</AlertDescription>
+                  </Alert>
+                  {/*
+                    P0 FIX (war room): the "Connect Stripe" button.
+                    The audit identified that this button was MISSING — the
+                    seller settings page said "Connect Stripe to enable
+                    public listings" but had no actual button to start
+                    the onboarding flow. Sellers had no way to receive
+                    payouts.
+                  */}
+                  <Button
+                    onClick={handleConnectStripe}
+                    disabled={isConnectingStripe}
+                    className="w-full"
+                  >
+                    {isConnectingStripe ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CreditCard className="h-4 w-4 mr-2" />
+                    )}
+                    {isConnectingStripe ? 'Connecting...' : 'Connect Stripe'}
+                    {!isConnectingStripe && <ExternalLink className="h-3 w-3 ml-2" />}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    You&apos;ll be redirected to Stripe to complete setup. VendorTrack never sees your bank details.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
