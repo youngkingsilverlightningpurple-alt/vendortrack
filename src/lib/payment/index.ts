@@ -22,7 +22,14 @@ export { createLedgerEntry, createLedgerEntries, getOrderLedgerBalance, getOrder
 export type { LedgerEventType, LedgerEntry, LedgerBalance } from './ledger-service';
 
 // Queue system
-export { enqueueJob, enqueueJobs, registerJobHandler, processNextJob, runQueueProcessor, getQueueStatus, cleanupOldJobs } from './queue';
+// P0 FIX (war room): queue is now unified — `enqueueJob` delegates to
+// `enqueueBackgroundJob` from `@/lib/performance/background-jobs`, which
+// writes to the `background_jobs` table that the worker polls.
+// `registerJobHandler`, `processNextJob`, and `runQueueProcessor` are
+// removed from this module — workers should use `runBackgroundWorker` and
+// `registerJobHandler` from `@/lib/performance/background-jobs` directly.
+// See `src/worker.ts` for the canonical worker entry point.
+export { enqueueJob, enqueueJobs, getQueueStatus, cleanupOldJobs, retryDeadJobsManual } from './queue';
 export type { JobType, JobStatus, PaymentJob, QueueJobOptions } from './queue';
 
 // Reconciliation

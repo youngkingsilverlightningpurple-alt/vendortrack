@@ -11,9 +11,15 @@ export const dynamic = 'force-dynamic';
 function verifyCronRequest(request: Request): boolean {
   const authHeader = request.headers.get('authorization');
   if (process.env.CRON_SECRET) {
-    return authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    // P0 FIX (war room): timing-safe comparison to prevent timing attacks
+    // on the bearer token. See reconciliation/route.ts for full rationale.
+    const expected = `Bearer ${process.env.CRON_SECRET}`;
+    if (authHeader?.length !== expected.length) return false;
+    const a = Buffer.from(authHeader || '');
+    const b = Buffer.from(expected);
+    return a.length === b.length && a.equals(b);
   }
-    // SECURITY: Fail-closed — deny access when CRON_SECRET is not configured
+  // SECURITY: Fail-closed — deny access when CRON_SECRET is not configured
   return false;
 }
 

@@ -1,38 +1,68 @@
 /**
  * @fileOverview Payment Job Queue — Background Processing
  *
- * Implements a database-backed job queue for long-running payment work:
- *   - Email notifications (buyer/seller)
- *   - Analytics updates
- *   - Seller notifications
- *   - Audit processing
- *   - Reconciliation jobs
+ * P0 FIX (war room): UNIFIED QUEUE.
+ *
+ * Previously this module wrote to a `payment_job_queue` table, while the
+ * background worker (`src/worker.ts` → `runBackgroundWorker` from
+ * `@/lib/performance/background-jobs`) polled a DIFFERENT table called
+ * `background_jobs`. The two tables never communicated — every job enqueued
+ * by the Stripe webhook sat in `payment_job_queue` forever and was never
+ * processed. Notifications, analytics, reconciliation, search indexing —
+ * all silently dead-lettered.
+ *
+ * Fix: `enqueueJob` and `enqueueJobs` now delegate to `enqueueBackgroundJob`
+ * from `@/lib/performance/background-jobs`, which writes to `background_jobs`
+ * (the table the worker actually polls). The legacy `payment_job_queue`
+ * table is no longer written to.
+ *
+ * The original public API of this module (`enqueueJob`, `enqueueJobs`,
+ * `QueueJobOptions`, `JobType`) is preserved so existing callers (webhook,
+ * refund-service) continue to work without changes.
+ *
+ * Migration note: any rows already in `payment_job_queue` from before this
+ * fix are NOT automatically migrated. Operators should manually inspect
+ * and re-enqueue if needed:
+ *   SELECT job_type, payload, trace_id, created_at
+ *   FROM payment_job_queue
+ *   WHERE status = 'pending'
+ *   ORDER BY created_at;
  *
  * DESIGN:
- *   - Jobs are stored in the `payment_job_queue` table
- *   - Workers poll the queue and process jobs
+ *   - Jobs are stored in the `background_jobs` table (shared with the worker)
+ *   - Workers poll the queue via `runBackgroundWorker`
  *   - Each job has a max_attempts limit (prevents infinite retries)
  *   - Failed jobs are retried with exponential backoff
  *   - Completed/failed jobs are marked and retained for audit
+ *   - Optional `dedupKey` prevents duplicate enqueues
  *
- * WHY DATABASE-BACKED:
- *   - No additional infrastructure (Redis, RabbitMQ) required
- *   - Jobs survive server restarts
- *   - Full audit trail of all job processing
- *   - Works with existing Supabase infrastructure
- *
- * SECURITY: Jobs are processed server-side only.
+ * SECURITY: Jobs are processed server-side only. The `background_jobs`
+ * table has RLS enabled (admin-only for SELECT/UPDATE/DELETE — see
+ * `docs/supabase-performance-migration.sql` P0 fix).
  */
 
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { PaymentLogger, PaymentError, PaymentErrorCode } from './errors';
-import { withRetry, RETRY_CONFIGS, sleep } from './retry';
 import { getErrorMessage, type PaymentPayload } from '@/types';
+import {
+  enqueueBackgroundJob,
+  getBackgroundJobQueueStatus,
+  cleanupOldBackgroundJobs,
+  retryDeadJobs,
+} from '@/lib/performance/background-jobs';
 
 // ============================================================
 // TYPES
 // ============================================================
 
+/**
+ * Job types supported by the payment queue.
+ *
+ * NOTE: This is a subset of the broader `JobType` union in
+ * `@/lib/performance/background-jobs`. Payment-adjacent jobs only.
+ * If you need image_processing, ai_task, search_indexing, etc., import
+ * `enqueueBackgroundJob` directly.
+ */
 export type JobType =
   | 'notification'
   | 'analytics'
@@ -41,7 +71,7 @@ export type JobType =
   | 'seller_payout'
   | 'ledger_reconciliation';
 
-export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'dead';
+export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'dead' | 'scheduled';
 
 export interface PaymentJob {
   id: string;
@@ -63,53 +93,55 @@ export interface QueueJobOptions {
   traceId: string;
   maxAttempts?: number;
   delayMs?: number;
+  /**
+   * Optional deduplication key. If a job with the same dedupKey is already
+   * pending or processing, the new enqueue is a no-op (returns the existing
+   * job ID). Recommended for idempotent operations like "send order
+   * confirmation for order X" — prevents duplicate emails if the webhook
+   * fires twice.
+   */
+  dedupKey?: string;
 }
 
 // ============================================================
-// JOB ENQUEUE
+// JOB ENQUEUE  (delegates to background_jobs table)
 // ============================================================
 
 /**
  * Enqueue a job for background processing.
- * Returns the job ID.
+ *
+ * P0 FIX (war room): delegates to `enqueueBackgroundJob` so jobs land in
+ * the `background_jobs` table that the worker actually polls. Returns the
+ * job ID, or empty string on failure (preserved from original API).
  */
 export async function enqueueJob(options: QueueJobOptions): Promise<string> {
-  const admin = getSupabaseAdmin();
+  try {
+    const jobId = await enqueueBackgroundJob({
+      jobType: options.jobType,
+      payload: options.payload as Record<string, unknown>,
+      traceId: options.traceId,
+      maxAttempts: options.maxAttempts,
+      delayMs: options.delayMs,
+      dedupKey: options.dedupKey,
+    });
 
-  const nextAttemptAt = options.delayMs
-    ? new Date(Date.now() + options.delayMs).toISOString()
-    : new Date().toISOString();
+    PaymentLogger.info(options.traceId, 'job_enqueued', `Job enqueued: ${options.jobType}`, {
+      jobId,
+      jobType: options.jobType,
+    });
 
-  const { data, error } = await (admin
-    .from('payment_job_queue') as any)
-    .insert({
-      job_type: options.jobType,
-      payload: options.payload,
-      status: 'pending',
-      attempts: 0,
-      max_attempts: options.maxAttempts || 3,
-      next_attempt_at: nextAttemptAt,
-      trace_id: options.traceId,
-    } as any)
-    .select('id')
-    .single();
-
-  if (error) {
+    return jobId;
+  } catch (error) {
     PaymentLogger.error(options.traceId, 'job_enqueue_failed', new PaymentError(PaymentErrorCode.INTERNAL_STATE_ERROR, {
-      message: `Failed to enqueue job: ${error.message}`,
+      message: `Failed to enqueue job: ${getErrorMessage(error)}`,
       traceId: options.traceId,
       context: { jobType: options.jobType },
     }));
     // Don't throw — job queue failure should not block the main operation
+    // (e.g. webhook processing). The caller can detect the empty string and
+    // choose to log/surface the failure, but the primary payment flow continues.
     return '';
   }
-
-  PaymentLogger.info(options.traceId, 'job_enqueued', `Job enqueued: ${options.jobType}`, {
-    jobId: (data as any).id,
-    jobType: options.jobType,
-  });
-
-  return (data as any).id;
 }
 
 /**
@@ -125,168 +157,15 @@ export async function enqueueJobs(jobs: QueueJobOptions[]): Promise<string[]> {
 }
 
 // ============================================================
-// JOB PROCESSING
-// ============================================================
-
-/** Map of job type handlers */
-const jobHandlers = new Map<JobType, (payload: PaymentPayload, traceId: string) => Promise<void>>();
-
-/**
- * Register a handler for a job type.
- */
-export function registerJobHandler(
-  jobType: JobType,
-  handler: (payload: PaymentPayload, traceId: string) => Promise<void>
-): void {
-  jobHandlers.set(jobType, handler);
-}
-
-/**
- * Process a single job from the queue.
- * Returns true if a job was processed, false if the queue is empty.
- */
-export async function processNextJob(): Promise<boolean> {
-  const admin = getSupabaseAdmin();
-
-  // Atomically claim the next pending job
-  // Use SELECT ... FOR UPDATE SKIP LOCKED pattern (via RPC)
-  const { data: job, error: claimError } = await (admin as any).rpc('claim_next_queue_job');
-
-  if (claimError || !job) {
-    return false; // No jobs available
-  }
-
-  const typedJob = job as PaymentJob;
-  const handler = jobHandlers.get(typedJob.job_type);
-
-  if (!handler) {
-    // No handler registered — mark as dead
-    await (admin
-      .from('payment_job_queue') as any)
-      .update({
-        status: 'dead',
-        error_message: `No handler registered for job type: ${typedJob.job_type}`,
-      } as any)
-      .eq('id', typedJob.id);
-
-    PaymentLogger.warn(typedJob.trace_id, 'job_no_handler', `No handler for job type: ${typedJob.job_type}`, {
-      jobId: typedJob.id,
-      jobType: typedJob.job_type,
-    });
-    return true;
-  }
-
-  try {
-    await handler(typedJob.payload, typedJob.trace_id);
-
-    // Mark as completed
-    await (admin
-      .from('payment_job_queue') as any)
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-      } as any)
-      .eq('id', typedJob.id);
-
-    PaymentLogger.info(typedJob.trace_id, 'job_completed', `Job completed: ${typedJob.job_type}`, {
-      jobId: typedJob.id,
-      jobType: typedJob.job_type,
-    });
-  } catch (error: unknown) {
-    const newAttempts = typedJob.attempts + 1;
-    const isMaxReached = newAttempts >= typedJob.max_attempts;
-    const errorMessage = getErrorMessage(error);
-
-    // Calculate next retry time with exponential backoff
-    const delayMs = Math.min(1000 * Math.pow(2, newAttempts), 30000) + Math.random() * 1000;
-    const nextAttemptAt = new Date(Date.now() + delayMs).toISOString();
-
-    await (admin
-      .from('payment_job_queue') as any)
-      .update({
-        status: isMaxReached ? 'dead' : 'pending',
-        attempts: newAttempts,
-        next_attempt_at: nextAttemptAt,
-        error_message: errorMessage.substring(0, 500),
-      } as any)
-      .eq('id', typedJob.id);
-
-    if (isMaxReached) {
-      PaymentLogger.error(typedJob.trace_id, 'job_dead', new PaymentError(PaymentErrorCode.INTERNAL_STATE_ERROR, {
-        message: `Job died after ${newAttempts} attempts: ${errorMessage}`,
-        traceId: typedJob.trace_id,
-      }), {
-        jobId: typedJob.id,
-        jobType: typedJob.job_type,
-        attempts: newAttempts,
-      });
-    } else {
-      PaymentLogger.warn(typedJob.trace_id, 'job_retry', `Job failed, retrying (${newAttempts}/${typedJob.max_attempts})`, {
-        jobId: typedJob.id,
-        jobType: typedJob.job_type,
-        nextAttemptAt,
-      });
-    }
-  }
-
-  return true;
-}
-
-/**
- * Run the queue processor for a given duration.
- * This is the main entry point for the background worker.
- */
-export async function runQueueProcessor(
-  options: {
-    pollIntervalMs?: number;
-    maxDurationMs?: number;
-    maxJobs?: number;
-  } = {}
-): Promise<{ jobsProcessed: number; durationMs: number }> {
-  const pollIntervalMs = options.pollIntervalMs || 1000;
-  const maxDurationMs = options.maxDurationMs || 60000;
-  const maxJobs = options.maxJobs || 100;
-
-  const startTime = Date.now();
-  let jobsProcessed = 0;
-
-  PaymentLogger.info('queue', 'queue_processor_started', 'Queue processor started', {
-    pollIntervalMs,
-    maxDurationMs,
-    maxJobs,
-  });
-
-  while (
-    Date.now() - startTime < maxDurationMs &&
-    jobsProcessed < maxJobs
-  ) {
-    const hadJob = await processNextJob();
-
-    if (hadJob) {
-      jobsProcessed++;
-    } else {
-      // No jobs available — wait before polling again
-      await sleep(pollIntervalMs);
-    }
-  }
-
-  const durationMs = Date.now() - startTime;
-
-  PaymentLogger.info('queue', 'queue_processor_stopped', 'Queue processor stopped', {
-    jobsProcessed,
-    durationMs,
-  });
-
-  return { jobsProcessed, durationMs };
-}
-
-// ============================================================
-// JOB QUEUE STATUS
+// JOB QUEUE STATUS  (delegates to background_jobs)
 // ============================================================
 
 /**
  * Get the current status of the job queue.
  * Used for monitoring and health checks.
+ *
+ * P0 FIX (war room): now reads from `background_jobs` (the table the worker
+ * actually polls) instead of the orphaned `payment_job_queue` table.
  */
 export async function getQueueStatus(): Promise<{
   pending: number;
@@ -296,14 +175,22 @@ export async function getQueueStatus(): Promise<{
   dead: number;
   oldestPending?: string;
 }> {
-  const admin = getSupabaseAdmin();
-
-  const { data, error } = await (admin
-    .from('payment_job_queue') as any)
-    .select('status, created_at')
-    .order('created_at', { ascending: true });
-
-  if (error) {
+  try {
+    const status = await getBackgroundJobQueueStatus();
+    // background-jobs returns `oldestPending: string | null`; we expose
+    // `oldestPending?: string` for API compatibility. Convert null → undefined.
+    return {
+      pending: status.pending,
+      processing: status.processing,
+      completed: status.completed,
+      failed: status.failed,
+      dead: status.dead,
+      oldestPending: status.oldestPending ?? undefined,
+    };
+  } catch {
+    // If the queue status check fails (DB error, etc.), return zeros rather
+    // than throwing — this is used in health checks and should not break
+    // the health endpoint.
     return {
       pending: 0,
       processing: 0,
@@ -312,43 +199,25 @@ export async function getQueueStatus(): Promise<{
       dead: 0,
     };
   }
-
-  const numericCounts: Record<JobStatus, number> = {
-    pending: 0,
-    processing: 0,
-    completed: 0,
-    failed: 0,
-    dead: 0,
-  };
-  let oldestPending: string | undefined;
-
-  for (const row of data || []) {
-    const status = (row as Record<string, unknown>).status as JobStatus;
-    if (status in numericCounts) {
-      numericCounts[status]++;
-    }
-    if (status === 'pending' && !oldestPending) {
-      oldestPending = (row as Record<string, unknown>).created_at as string;
-    }
-  }
-
-  return { ...numericCounts, oldestPending };
 }
 
 /**
  * Clean up old completed/failed jobs (older than 30 days).
  * Should be called periodically to prevent unbounded growth.
+ *
+ * P0 FIX (war room): delegates to `cleanupOldBackgroundJobs`.
  */
 export async function cleanupOldJobs(olderThanDays: number = 30): Promise<number> {
-  const admin = getSupabaseAdmin();
-  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString();
+  return cleanupOldBackgroundJobs(olderThanDays);
+}
 
-  const { data, error } = await (admin
-    .from('payment_job_queue') as any)
-    .delete()
-    .in('status', ['completed', 'failed', 'dead'])
-    .lt('completed_at', cutoff)
-    .select('id');
-
-  return data?.length || 0;
+/**
+ * Retry dead jobs (manual recovery).
+ *
+ * P0 FIX (war room): delegates to `retryDeadJobs` from background-jobs.
+ * Operators can use this to retry jobs that exhausted their max_attempts
+ * after a transient issue has been resolved.
+ */
+export async function retryDeadJobsManual(jobType?: JobType, limit: number = 10): Promise<number> {
+  return retryDeadJobs(jobType, limit);
 }
