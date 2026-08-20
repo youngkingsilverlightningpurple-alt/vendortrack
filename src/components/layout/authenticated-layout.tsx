@@ -204,6 +204,20 @@ export default function AuthenticatedLayout({
         <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4">
           <SidebarTrigger className="md:hidden" />
           <div className="flex-1" />
+          {/*
+            P0 FIX (war room): subtle "Demo Environment" label.
+            Shows only when NEXT_PUBLIC_DEMO_MODE=true is set (env var).
+            The label is unobtrusive — small amber badge in the top-right corner
+            of the header. It tells a prospective buyer that the data they're
+            viewing is synthetic demo data, not real customer activity.
+            The badge uses the existing amber color from the design system.
+          */}
+          {process.env.NEXT_PUBLIC_DEMO_MODE === 'true' && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              Demo Environment
+            </span>
+          )}
         </header>
         <main className="flex-1 bg-slate-50/50">{children}</main>
       </SidebarInset>
