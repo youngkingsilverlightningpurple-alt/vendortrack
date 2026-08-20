@@ -32,5 +32,14 @@
     }
   ],
 
-  "crons": []
+  "crons": [
+    {
+      "path": "/api/cron/cache-warming",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/reconciliation",
+      "schedule": "0 2 * * *"
+    }
+  ]
 }

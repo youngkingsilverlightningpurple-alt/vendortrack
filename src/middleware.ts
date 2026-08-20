@@ -330,6 +330,13 @@ function getDashboardUrl(isAdmin: boolean | null | undefined, role: string | nul
 }
 
 export const config = {
+  // P0 FIX: explicitly use Node.js runtime instead of Edge.
+  // Vercel has deprecated the Edge runtime for middleware — deployments fail
+  // with "The Edge runtime is deprecated and cannot be used for anonymous
+  // deployments. Use the Node.js runtime for 'src/middleware'."
+  // The Node.js runtime supports all the same APIs we use (Supabase SSR,
+  // crypto, headers, etc.) and removes the Edge deprecation blocker.
+  runtime: 'nodejs',
   matcher: [
     /*
      * Match all routes except:
