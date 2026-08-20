@@ -1,18 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
-    // Strict type checking is now enforced.
-    // All type errors have been fixed — Supabase RPC return types are
-    // properly typed, and missing types have been generated.
+    // Strict type checking is enforced — all type errors are fixed.
     ignoreBuildErrors: false,
   },
   eslint: {
+    // ESLint errors are enforced — all errors are fixed.
     ignoreDuringBuilds: false,
   },
   // Standalone output for Docker — produces minimal server bundle
   output: 'standalone',
-  // serverComponentsExternalPackages at top-level (Next.js 14.2+)
-  serverExternalPackages: ['stripe'],
+  // P0 FIX: `serverComponentsExternalPackages` is the correct key for Next.js 14.2+
+  // (was `serverExternalPackages` which is the Next.js 15+ key and causes a warning)
+  serverComponentsExternalPackages: ['stripe', 'isomorphic-dompurify', 'jsdom'],
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co', port: '', pathname: '/**' },

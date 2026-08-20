@@ -15,7 +15,8 @@
  */
 
 // Sentry is an optional dependency — gracefully degrade if not installed
-// @ts-expect-error @sentry/nextjs is an optional peer dependency
+// P0 FIX: removed @ts-expect-error because @sentry/nextjs IS installed
+// (the directive was causing "Unused '@ts-expect-error' directive" errors)
 let Sentry: typeof import('@sentry/nextjs') | null = null;
 try {
   Sentry = require('@sentry/nextjs');
@@ -176,6 +177,8 @@ export function addBreadcrumb(
 
 /**
  * Wrap an async function with Sentry error tracking.
+ * P0 FIX: updated from deprecated `startTransaction` (removed in Sentry v8)
+ * to the new `startSpan` API.
  */
 export function withSentry<T extends (...args: unknown[]) => Promise<unknown>>(
   fn: T,
@@ -184,19 +187,16 @@ export function withSentry<T extends (...args: unknown[]) => Promise<unknown>>(
   if (!Sentry) return fn;
 
   return (async (...args: unknown[]) => {
-    const transaction = Sentry!.startTransaction({ name: operation });
-    try {
-      const result = await fn(...args);
-      transaction.setStatus('ok');
-      return result;
-    } catch (error) {
-      transaction.setStatus('internal_error');
-      captureException(error instanceof Error ? error : new Error(String(error)), {
-        tags: { operation },
-      });
-      throw error;
-    } finally {
-      transaction.finish();
-    }
+    return Sentry!.startSpan({ name: operation, op: operation }, async () => {
+      try {
+        const result = await fn(...args);
+        return result;
+      } catch (error) {
+        captureException(error instanceof Error ? error : new Error(String(error)), {
+          tags: { operation },
+        });
+        throw error;
+      }
+    });
   }) as T;
 }
