@@ -39,6 +39,12 @@ import {
 // button has been removed from the admin UI (see comment in JSX below).
 // The server action remains in `src/lib/seed-service.ts` for programmatic
 // use, but is NOT exposed in the admin UI.
+//
+// P0 FIX (war room): import the server actions for admin mutations.
+// The previous implementation called `supabase.from('profiles').update()`
+// directly from the client, which was blocked by RLS. The server actions
+// use the service-role admin client which bypasses RLS.
+import { toggleAdminStatus as toggleAdminStatusAction, updateSellerStatus as updateSellerStatusAction } from '@/app/actions/admin-actions';
 
 const log = createLogger('admin-users');
 
@@ -109,16 +115,16 @@ export default function AdminUsersPage() {
   // Mass user deletion is now a CLI/SQL-only operation.
 
   const toggleAdmin = async (userId: string, currentStatus: boolean) => {
-    if (profile?.isDemo) {
-        toast({ title: "Demo Simulation", description: "Role toggle simulated." });
-        setUsers(prev => prev.map(u => u.id === userId ? { ...u, isAdmin: !currentStatus } : u));
-        return;
-    }
-
+    // P0 FIX (war room): use the server action instead of direct client-side
+    // supabase update. The previous implementation called
+    // `supabase.from('profiles').update({is_admin})` from the client, which
+    // was blocked by the RLS `WITH CHECK` clause (the policy requires
+    // `is_admin = <current value>`, so the value can never change).
+    // The server action uses the service-role admin client which bypasses RLS.
     try {
-      const { error } = await supabase.from('profiles').update({ is_admin: !currentStatus }).eq('id', userId);
-      if (error) throw error;
-      toast({ title: "Role Updated" });
+      const result = await toggleAdminStatusAction(userId, !currentStatus);
+      if (result.error) throw new Error(result.error);
+      toast({ title: "Role Updated", description: `User is now ${!currentStatus ? 'an admin' : 'a regular user'}.` });
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, isAdmin: !currentStatus } : u));
     } catch (error: unknown) {
       toast({ variant: "destructive", title: "Update failed", description: getErrorMessage(error) });
@@ -126,16 +132,12 @@ export default function AdminUsersPage() {
   };
 
   const updateSellerStatus = async (userId: string, status: 'approved' | 'rejected' | 'pending') => {
-    if (profile?.isDemo) {
-        toast({ title: "Demo Simulation", description: "Vendor status update simulated." });
-        setUsers(prev => prev.map(u => u.id === userId ? { ...u, sellerStatus: status } : u));
-        return;
-    }
-
+    // P0 FIX (war room): use the server action instead of direct client-side
+    // supabase update. See toggleAdmin above for the full rationale.
     try {
-      const { error } = await supabase.from('profiles').update({ seller_status: status }).eq('id', userId);
-      if (error) throw error;
-      toast({ title: "Vendor Status Updated" });
+      const result = await updateSellerStatusAction(userId, status);
+      if (result.error) throw new Error(result.error);
+      toast({ title: "Vendor Status Updated", description: `Seller has been ${status}.` });
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, sellerStatus: status } : u));
     } catch (error: unknown) {
       toast({ variant: "destructive", title: "Update failed", description: getErrorMessage(error) });

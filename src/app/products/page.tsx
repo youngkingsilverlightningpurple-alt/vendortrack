@@ -140,7 +140,12 @@ export default function ProductsPage() {
       try {
         let query = supabase
           .from('products')
-          .select('id, title, price, image_url, category, stock')
+          // P0 FIX (war room): use `price_cents` (the actual column name), not `price`.
+          // The previous implementation selected `price` which doesn't exist
+          // in the schema (column is `price_cents INTEGER`). PostgREST silently
+          // drops unknown columns, so `product.price` was `undefined`, which
+          // caused `formatCurrency(undefined)` to render "$NaN" on every card.
+          .select('id, title, price_cents, image_url, category, stock')
           .eq('status', 'active')
           .order('created_at', { ascending: false })
           .limit(PAGE_SIZE);
@@ -152,10 +157,12 @@ export default function ProductsPage() {
           query = query.eq('category', selectedCategory);
         }
         if (minPrice) {
-          query = query.gte('price', parseFloat(minPrice));
+          // P0 FIX (war room): filter on price_cents (column name), converted from dollars to cents
+          query = query.gte('price_cents', parseFloat(minPrice) * 100);
         }
         if (maxPrice) {
-          query = query.lte('price', parseFloat(maxPrice));
+          // P0 FIX (war room): filter on price_cents (column name), converted from dollars to cents
+          query = query.lte('price_cents', parseFloat(maxPrice) * 100);
         }
 
         const { data } = await query;
@@ -163,7 +170,9 @@ export default function ProductsPage() {
           setProducts(data.map(p => ({
             id: p.id,
             title: p.title,
-            price: p.price,
+            // P0 FIX (war room): convert price_cents (integer) to dollars (float)
+            // for the UI. The schema stores price in cents; formatCurrency expects dollars.
+            price: (p as { price_cents: number }).price_cents / 100,
             imageUrl: p.image_url,
             category: p.category,
             stock: p.stock,

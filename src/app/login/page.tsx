@@ -44,11 +44,15 @@ export default function LoginPage() {
     if (!isAuthLoading && user) {
       supabase
         .from('profiles')
-        .select('role')
+        .select('role, is_admin')
         .eq('id', user.id)
         .single()
         .then(({ data }) => {
-          if (data?.role === 'seller') {
+          // P0 FIX (war room): route admins to /admin-dashboard (was falling
+          // through to /buyer-orders). Also explicitly handle the 'admin' role.
+          if (data?.is_admin) {
+            router.push("/admin-dashboard");
+          } else if (data?.role === 'seller') {
             router.push("/seller-dashboard");
           } else {
             router.push("/buyer-orders");

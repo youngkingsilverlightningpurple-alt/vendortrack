@@ -52,7 +52,9 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       try {
         const { data: pData } = await supabase
           .from('products')
-          .select('id, title, price, image_url, description, category, stock, seller_id')
+          // P0 FIX (war room): use `price_cents` (the actual column name), not `price`.
+          // See products/page.tsx for the full rationale.
+          .select('id, title, price_cents, image_url, description, category, stock, seller_id')
           .eq('id', params.id)
           .single();
 
@@ -61,7 +63,8 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         setProduct({
           id: pData.id,
           title: pData.title,
-          price: pData.price,
+          // P0 FIX (war room): convert price_cents (integer) to dollars (float)
+          price: (pData as { price_cents: number }).price_cents / 100,
           imageUrl: pData.image_url,
           description: pData.description,
           category: pData.category,

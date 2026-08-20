@@ -23,6 +23,22 @@ const nextConfig = {
     minimumCacheTTL: 3600,
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    // P0 FIX (war room): allow SVG from the placeholder API route.
+    // Demo products use `/api/placeholder/{category}/{seed}` which returns
+    // `Content-Type: image/svg+xml`. Without `dangerouslyAllowSVG`, Next.js's
+    // image optimizer refuses to optimize SVG (security: SVG can contain
+    // scripts) and returns HTTP 400 from `/_next/image`, rendering every
+    // demo product image as a broken-image icon.
+    //
+    // SECURITY: this is acceptable because:
+    //   1. The placeholder route generates deterministic SVG with NO user
+    //      input in the SVG body (only category label + seed in the URL path,
+    //      which is validated server-side).
+    //   2. The CSP `script-src` directive blocks inline scripts regardless.
+    //   3. The `contentDispositionType: 'attachment'` setting prevents SVG
+    //      from being rendered as a full page (only embedded as <img>).
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
   },
   // Compression
   compress: true,

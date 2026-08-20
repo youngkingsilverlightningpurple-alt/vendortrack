@@ -215,7 +215,7 @@ export function ProductForm({ isOpen, onOpenChange, product }: ProductFormProps)
               name="image"
               render={() => (
                 <FormItem>
-                  <FormLabel>Asset Visualization</FormLabel>
+                  <FormLabel>Product Image</FormLabel>
                   <FormControl>
                     <Input type="file" accept="image/*" onChange={handleImageChange} className="text-sm cursor-pointer"/>
                   </FormControl>
@@ -229,7 +229,7 @@ export function ProductForm({ isOpen, onOpenChange, product }: ProductFormProps)
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Asset Name</FormLabel>
+                  <FormLabel>Product Name</FormLabel>
                   <FormControl><Input placeholder="Product title" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -242,7 +242,7 @@ export function ProductForm({ isOpen, onOpenChange, product }: ProductFormProps)
               render={({ field }) => (
                 <FormItem>
                    <div className="flex items-center justify-between">
-                     <FormLabel>Specifications</FormLabel>
+                     <FormLabel>Description</FormLabel>
                      <Button type="button" variant="link" size="sm" className="h-auto p-0 text-primary" onClick={() => setIsAiModalOpen(true)}>
                         <Sparkles className="mr-2 h-3 w-3" />
                         AI Copywriter
@@ -260,7 +260,7 @@ export function ProductForm({ isOpen, onOpenChange, product }: ProductFormProps)
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Unit Value (USD)</FormLabel>
+                      <FormLabel>Price (USD)</FormLabel>
                       <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -271,7 +271,7 @@ export function ProductForm({ isOpen, onOpenChange, product }: ProductFormProps)
                   name="status"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Market Status</FormLabel>
+                      <FormLabel>Status</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue /></SelectTrigger>
@@ -290,7 +290,7 @@ export function ProductForm({ isOpen, onOpenChange, product }: ProductFormProps)
                 <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Commit Listing
+                  Save Listing
                 </Button>
             </DialogFooter>
           </form>

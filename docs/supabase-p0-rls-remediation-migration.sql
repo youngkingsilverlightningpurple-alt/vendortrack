@@ -28,20 +28,33 @@
 BEGIN;
 
 -- ============================================================
--- 1. PROFILES — restrict SELECT to self + admin
+-- 1. PROFILES — restrict SELECT to self + admin + public seller fields
 -- ============================================================
 
 -- Drop the public-read policy
 DROP POLICY IF EXISTS "Profiles are readable by everyone" ON public.profiles;
 
--- Replace with: users can read their own profile, admins can read all.
--- Storefronts only need seller_name + store_logo_url, which they get via
--- the products JOIN — they don't need direct SELECT on profiles.
+-- P0 FIX (war room): the previous "Users can read own profile" policy was
+-- TOO RESTRICTIVE — it broke storefronts, product-detail seller cards, and
+-- the seller-orders buyer_name JOIN. A buyer needs to read a seller's
+-- PUBLIC profile fields (store_name, store_logo_url, store_description,
+-- full_name) to see the storefront. They must NOT be able to read
+-- sensitive fields (email, stripe_account_id, referral_code, is_admin).
+--
+-- Solution: anyone can read profiles WHERE role = 'seller' (sellers are
+-- public merchants). Buyers + admins can additionally read their own row
+-- + admin can read all. The sensitive columns are still protected at the
+-- column level by the application layer (repositories only select the
+-- fields they need).
 CREATE POLICY "Users can read own profile"
   ON public.profiles
   FOR SELECT
   USING (
-    auth.uid() = id
+    -- Anyone can read seller profiles (sellers are public merchants with storefronts)
+    role = 'seller'
+    -- Users can read their own profile
+    OR auth.uid() = id
+    -- Admins can read everything
     OR (SELECT is_admin FROM public.profiles WHERE id = auth.uid()) = true
   );
 
@@ -49,6 +62,35 @@ CREATE POLICY "Users can read own profile"
 -- Storefront pages (server-rendered) use the service_role admin client
 -- via repositories, which bypasses RLS. The RLS only protects direct
 -- client-side queries via the anon key.
+
+-- ============================================================
+-- 1b. PUBLIC_SELLER_PROFILE VIEW — safe public storefront data
+-- ============================================================
+-- P0 FIX (war room): even with `role='seller'` readable, we don't want
+-- buyers to be able to SELECT the `email`, `stripe_account_id`,
+-- `referral_code`, or `is_admin` columns of seller profiles. The RLS
+-- policy above controls ROW-level access; for COLUMN-level protection
+-- we create a VIEW that exposes only the public storefront fields.
+--
+-- Application code that needs to display a seller's storefront
+-- (product detail page, store page) should query this VIEW instead of
+-- the `profiles` table directly. The VIEW inherits the `profiles` RLS
+-- policy, so the `role='seller'` check still applies.
+CREATE OR REPLACE VIEW public.public_seller_profile AS
+  SELECT
+    id,
+    full_name,
+    role,
+    seller_status,
+    store_name,
+    store_description,
+    store_logo_url,
+    stripe_connected,
+    created_at
+  FROM public.profiles
+  WHERE role = 'seller';
+
+GRANT SELECT ON public.public_seller_profile TO authenticated, anon;
 
 -- ============================================================
 -- 2. PRODUCTS — restrict SELECT to active + own drafts

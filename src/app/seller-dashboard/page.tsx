@@ -274,11 +274,11 @@ export default function SellerDashboardPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-1">
                   <p className="text-sm font-bold text-primary">Use AI Copilot</p>
-                  <p className="text-xs text-slate-400 leading-relaxed">Sellers who use our AI description generator see 40% higher conversion rates on their listings.</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">Use the AI description generator to write compelling product listings in seconds.</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-bold text-primary">Quick Fulfillment</p>
-                  <p className="text-xs text-slate-400 leading-relaxed">Shipping items within 24 hours increases your "Store Reliability" score and search ranking.</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">Ship orders within 24 hours to keep buyers happy and earn positive reviews.</p>
                 </div>
                 <Button variant="outline" className="w-full border-slate-700 bg-transparent text-white hover:bg-slate-800" asChild>
                   <Link href="/help">Visit Knowledge Base</Link>

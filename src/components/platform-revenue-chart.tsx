@@ -27,7 +27,7 @@ export function PlatformRevenueChart() {
   useEffect(() => {
     const fetchChartData = async () => {
       // In a production environment, this would query a materialized view or aggregated analytics table.
-      // For this audit-ready environment, we aggregate the current orders table to reflect reality.
+      // For this demo environment, we aggregate the current orders table to reflect reality.
       const { data: orders, error } = await supabase
         .from('orders')
         .select('amount_total_cents, created_at')

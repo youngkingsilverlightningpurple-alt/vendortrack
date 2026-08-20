@@ -30,7 +30,7 @@
  *
  * DATA SHAPE:
  *   - 1 admin + 4 sellers + 3 buyers = 8 auth users
- *   - 30 active products + 3 drafts = 33 products
+ *   - 30 products total (27 active + 3 drafts) across 6 categories
  *   - 50 orders spread across 30 days (mix of delivered/shipped/pending/refunded/refund-requested)
  *   - 100+ financial_ledger entries (payment_completed + commission_collected per order, + refunds)
  *   - 5 conversations with 3-5 messages each
@@ -228,50 +228,78 @@ function generateStripeId(type: 'pi' | 'acct' | 're'): string {
 async function resetDemoData() {
   log('RESET', 'Deleting existing demo data...');
 
-  // Delete in dependency order to avoid FK violations
-  // (conversations → messages via CASCADE, but explicit delete is safer)
+  // Step 1: Fetch demo user IDs FIRST so we can delete their dependent rows
+  log('RESET', '  Finding existing demo users...');
+  const { data: existingDemoUsers } = await supabase.auth.admin.listUsers();
+  const existingDemoUserIds = (existingDemoUsers?.users ?? [])
+    .filter((u) => u.email?.endsWith('@demo.vendortrack.app'))
+    .map((u) => u.id);
+  log('RESET', `  Found ${existingDemoUserIds.length} existing demo users.`, existingDemoUserIds.length);
 
-  // 1. Delete demo audit_logs (by trace_id prefix)
+  // Step 2: Delete in dependency order
+
+  // 2a. Delete demo conversations (CASCADE deletes messages)
+  if (existingDemoUserIds.length > 0) {
+    log('RESET', '  Deleting demo conversations + messages...');
+    for (const userId of existingDemoUserIds) {
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`);
+      if (error) console.warn('  conversations delete warning:', error.message);
+    }
+
+    // 2b. Delete demo cart_items
+    log('RESET', '  Deleting demo cart_items...');
+    const { error: cartErr } = await supabase
+      .from('cart_items')
+      .delete()
+      .in('user_id', existingDemoUserIds);
+    if (cartErr) console.warn('  cart_items delete warning:', cartErr.message);
+
+    // 2c. Delete demo payment_sessions
+    log('RESET', '  Deleting demo payment_sessions...');
+    const { error: sessErr } = await supabase
+      .from('payment_sessions')
+      .delete()
+      .in('user_id', existingDemoUserIds);
+    if (sessErr) console.warn('  payment_sessions delete warning:', sessErr.message);
+  }
+
+  // 2d. Delete demo audit_logs (by trace_id prefix)
   const { error: auditErr } = await supabase
     .from('audit_logs')
     .delete()
     .like('trace_id', 'tr_TEST_%');
   if (auditErr) console.warn('  audit_logs delete warning:', auditErr.message);
 
-  // 2. Delete demo financial_ledger entries
+  // 2e. Delete demo financial_ledger entries
   const { error: ledgerErr } = await supabase
     .from('financial_ledger')
     .delete()
     .like('trace_id', 'tr_TEST_%');
   if (ledgerErr) console.warn('  financial_ledger delete warning:', ledgerErr.message);
 
-  // 3. Delete demo messages
-  const { error: msgErr } = await supabase
-    .from('messages')
-    .delete()
-    .like('sender_id', '%demo.vendortrack.app');
-  if (msgErr) console.warn('  messages delete warning (may be empty):', msgErr.message);
-
-  // 4. Delete demo conversations (by buyer/seller email match via separate query)
-  // We'll fetch demo user IDs first, then delete conversations involving them.
-
-  // 5. Delete demo orders
+  // 2f. Delete demo orders
   const { error: orderErr } = await supabase
     .from('orders')
     .delete()
     .like('trace_id', 'tr_TEST_%');
   if (orderErr) console.warn('  orders delete warning:', orderErr.message);
 
-  // 6. Delete demo products (by image_url prefix — demo products use /api/placeholder/)
+  // 2g. Delete demo products (by image_url prefix — demo products use /api/placeholder/)
   const { error: prodErr } = await supabase
     .from('products')
     .delete()
     .like('image_url', '%/api/placeholder/%');
   if (prodErr) console.warn('  products delete warning:', prodErr.message);
 
-  // 7. Delete demo cart_items (by demo buyer IDs — fetched below)
-  // 8. Delete demo payment_sessions (by demo user IDs)
-  // These are handled after we fetch demo user IDs.
+  // Note: we do NOT delete the demo auth users or profiles here — `createDemoUsers`
+  // uses `auth.admin.createUser` which skips already-existing users, and `upsert`s
+  // the profiles. This preserves the user IDs across re-seeds so any orphaned
+  // references (e.g. cart_items created by a previous seed run that wasn't cleaned)
+  // remain valid. If a full reset is needed, use `npm run seed:reset` which
+  // deletes the auth users + profiles too.
 
   log('RESET', 'Existing demo data deleted.');
 }
@@ -728,7 +756,7 @@ async function main() {
   console.log('  DEMO SEED COMPLETE');
   console.log('============================================================');
   console.log(`  Users:          ${Object.keys(userIds).length} (1 admin, 4 sellers, 3 buyers)`);
-  console.log(`  Products:       ${products.length} (30 active + 3 drafts)`);
+  console.log(`  Products:       ${products.length} (27 active + 3 drafts)`);
   console.log(`  Orders:         ${orders.length} (spread across 30 days)`);
   console.log(`  Ledger entries: ~${orders.length * 2 + 4} (payment_completed + commission_collected per order + refunds)`);
   console.log(`  Conversations:  5 (with 3-4 messages each)`);

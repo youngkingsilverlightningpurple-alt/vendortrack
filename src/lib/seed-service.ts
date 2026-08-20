@@ -194,7 +194,11 @@ export async function seedMarketplaceData(adminId: string) {
       id: crypto.randomUUID(),
       seller_id: product.seller_id,
       buyer_id: buyer.id,
-      buyer_name: buyer.full_name,
+      // P0 FIX (war room): removed `buyer_name: buyer.full_name` — the `orders`
+      // table has NO `buyer_name` column. PostgREST silently dropped the field
+      // on INSERT, so the seller-orders "Customer" column was always blank.
+      // The fix is to JOIN `profiles` on `buyer_id` at query time (see
+      // seller-dashboard/orders/page.tsx).
       product_id: product.id,
       product_name: product.title,
       quantity: quantity,
