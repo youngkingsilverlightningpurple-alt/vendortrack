@@ -40,10 +40,6 @@
     {
       "path": "/api/cron/reconciliation",
       "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/health-check",
-      "schedule": "0 4 * * *"
     }
   ]
 }
