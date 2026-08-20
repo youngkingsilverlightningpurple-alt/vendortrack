@@ -18,9 +18,9 @@
     "docker:dev": "docker compose -f docker-compose.dev.yml up",
     "docker:logs": "docker compose logs -f",
     "healthcheck": "curl -sf http://localhost:9002/api/health || exit 1",
-    "seed": "npx supabase db reset && tsx scripts/seed-demo.ts",
-    "seed:demo": "tsx scripts/seed-demo.ts",
-    "seed:reset": "tsx scripts/seed-reset.ts",
+    "seed": "npx supabase db reset && tsx scripts/seed-demo-data.ts",
+    "seed:demo": "tsx scripts/seed-demo-data.ts",
+    "seed:reset": "tsx scripts/seed-demo-reset.ts",
     "verify": "tsx scripts/production-verify.ts",
     "verify:acceptance": "tsx scripts/acceptance-tests.ts",
     "verify:deployment": "tsx scripts/deployment-verify.ts"
