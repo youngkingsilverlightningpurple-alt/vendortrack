@@ -72,6 +72,8 @@ export default function SellerDashboardPage() {
     totalRevenue: 0,
     pendingOrders: 0,
     totalOrders: 0,
+    fulfillmentRate: 0,
+    deliveredPercent: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -98,10 +100,27 @@ export default function SellerDashboardPage() {
         if (orders) {
           const revenue = orders.filter(o => o.status === 'delivered').reduce((acc, o) => acc + o.amount_cents, 0) / 100;
           const pending = orders.filter(o => o.status === 'pending').length;
+          // P0 FIX (war room): compute real fulfillment rate from actual order data.
+          // Previous implementation hardcoded `value="98.2"` and `trend="%"` which
+          // always displayed a fake 98.2% regardless of actual seller performance.
+          // Real fulfillment rate = delivered orders / (delivered + shipped + pending)
+          // (excludes refunded/cancelled since those aren't fulfillment outcomes).
+          const fulfillableOrders = orders.filter(o => o.status === 'delivered' || o.status === 'shipped' || o.status === 'pending');
+          const deliveredCount = orders.filter(o => o.status === 'delivered').length;
+          const fulfillmentRate = fulfillableOrders.length > 0
+            ? Math.round((deliveredCount / fulfillableOrders.length) * 1000) / 10 // 1 decimal place
+            : 0;
+          // Real trend: percentage of orders that are delivered (not a fake +12%).
+          // Represented as "X% delivered" in the trend slot.
+          const deliveredPercent = orders.length > 0
+            ? Math.round((deliveredCount / orders.length) * 100)
+            : 0;
           setStats({
             totalRevenue: revenue,
             pendingOrders: pending,
             totalOrders: orders.length,
+            fulfillmentRate,
+            deliveredPercent,
           });
         }
       } catch (error: unknown) {
@@ -173,7 +192,7 @@ export default function SellerDashboardPage() {
                 icon={DollarSign}
                 isLoading={isLoading}
                 description="Successfully delivered"
-                trend="+12%"
+                trend={stats.totalOrders > 0 ? `${stats.totalOrders} orders` : undefined}
               />
               <StatCard
                 title="Active Orders"
@@ -184,11 +203,11 @@ export default function SellerDashboardPage() {
               />
               <StatCard
                 title="Fulfillment Rate"
-                value="98.2"
-                trend="%"
+                value={isLoading ? '—' : `${stats.fulfillmentRate}%`}
                 icon={CheckCircle2}
                 isLoading={isLoading}
-                description="Orders delivered on time"
+                description="Delivered vs. fulfillable"
+                trend={stats.totalOrders > 0 ? `${stats.deliveredPercent}% delivered` : undefined}
               />
               <StatCard
                 title="Store Products"

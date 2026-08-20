@@ -195,11 +195,11 @@ export default function AdminDashboardPage() {
             description="Gross Merchandise Volume"
           />
           <StatCard
-            title="Platform Yield"
+            title="Platform Revenue"
             value={stats ? formatCurrency(stats.totalCommissionCents / 100) : '0'}
             icon={TrendingUp}
             isLoading={isLoading}
-            description="Captured Fees (10%)"
+            description="10% commission on each sale"
           />
           <StatCard
             title="Active Sellers"
@@ -209,18 +209,18 @@ export default function AdminDashboardPage() {
             description="Verified Vendors"
           />
           <StatCard
-            title="Throughput (30d)"
+            title="Orders (30d)"
             value={stats ? stats.totalOrders30d : 0}
             icon={Calendar}
             isLoading={isLoading}
-            description="Fulfillment Events"
+            description="Total orders in the last 30 days"
           />
           <StatCard
-            title="Efficiency"
+            title="Conversion Rate"
             value={stats ? stats.conversionRate : 0}
             icon={Percent}
             isLoading={isLoading}
-            description="Order/User Ratio"
+            description="Orders per active user"
             valueSuffix="%"
           />
         </div>
@@ -231,21 +231,20 @@ export default function AdminDashboardPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Database className="h-5 w-5 text-primary" />
-                        Relational Integrity
+                        Platform Stats
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <p className="text-muted-foreground text-sm leading-relaxed font-medium">
-                        State consistency is enforced at the database layer via PostgreSQL transactions. 
-                        Every financial interaction is recorded in the immutable audit trail.
+                        Overview of products and users on the platform.
                     </p>
                     <div className="grid grid-cols-2 gap-4 text-sm font-mono">
                       <div className="p-4 bg-muted/50 rounded-xl border border-primary/10">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-1">Catalog Size</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-1">Products</p>
                         <p className="text-xl font-extrabold">{stats ? stats.totalProducts : 0}</p>
                       </div>
                       <div className="p-4 bg-muted/50 rounded-xl border border-primary/10">
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-1">Total Accounts</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-1">Users</p>
                         <p className="text-xl font-extrabold">{stats ? stats.totalUsers : 0}</p>
                       </div>
                     </div>

@@ -48,16 +48,27 @@ export default function AdminOrdersPage() {
     loadingSetter(true);
 
     try {
+      // P0 FIX (war room): JOIN profiles on buyer_id to populate buyer_name.
+      // See seller-dashboard/orders/page.tsx for the full rationale.
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          buyer:profiles!orders_buyer_id_fkey(email, full_name)
+        `)
         .order('created_at', { ascending: false })
         .range(pageToFetch * PAGE_SIZE, (pageToFetch + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
 
-      const orderList = (data || []).map(o => orderRowToDomain(o as OrderRow));
-      
+      const orderList = (data || []).map((o: Record<string, unknown>) => {
+        const buyer = o.buyer as { email?: string; full_name?: string } | null;
+        return orderRowToDomain({
+          ...o,
+          buyer_name: buyer?.full_name ?? buyer?.email?.split('@')[0] ?? 'Unknown buyer',
+        } as OrderRow);
+      });
+
       setOrders(prev => pageToFetch > 0 ? [...prev, ...orderList] : orderList);
       setPage(pageToFetch);
 
@@ -95,13 +106,13 @@ export default function AdminOrdersPage() {
             <p className="text-sm text-muted-foreground">Monitor every transaction across the platform.</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => fetchOrders(0)} disabled={isLoading}>
-            Refresh Ledger
+            Refresh
           </Button>
         </div>
 
         <Card>
             <CardHeader>
-                <CardTitle>Transaction Ledger</CardTitle>
+                <CardTitle>All Orders</CardTitle>
                 <CardDescription>A real-time view of platform financial activity.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -167,7 +178,7 @@ export default function AdminOrdersPage() {
                             <div className="flex justify-center pt-4">
                                 <Button onClick={handleLoadMore} disabled={isLoadingMore} variant="outline">
                                     {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Load More Transactions
+                                    Load More
                                 </Button>
                             </div>
                         )}

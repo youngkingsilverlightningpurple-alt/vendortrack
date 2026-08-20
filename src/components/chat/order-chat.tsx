@@ -119,8 +119,8 @@ export function OrderChat({ order }: OrderChatProps) {
   return (
     <div className="flex flex-col h-full max-h-[80vh]">
       <div className="p-4 border-b bg-muted/20">
-        <h3 className="font-bold flex items-center gap-2"><MessageSquare className="h-4 w-4 text-primary" /> Forensic Support Channel</h3>
-        <p className="text-xs text-muted-foreground truncate">Ref: #{order.id.substring(0, 8)} - {order.productName}</p>
+        <h3 className="font-bold flex items-center gap-2"><MessageSquare className="h-4 w-4 text-primary" /> Support Chat</h3>
+        <p className="text-xs text-muted-foreground truncate">Order #{order.id.substring(0, 8)} - {order.productName}</p>
       </div>
       <ScrollArea className="flex-1 p-4">
         {messages.length > 0 ? (
@@ -141,7 +141,7 @@ export function OrderChat({ order }: OrderChatProps) {
             })}
             <div ref={scrollRef} />
           </div>
-        ) : <p className="text-center text-xs text-muted-foreground py-20">Audit-ready support channel initialized.</p>}
+        ) : <p className="text-center text-xs text-muted-foreground py-20">No messages yet. Start the conversation!</p>}
       </ScrollArea>
       <div className="p-4 border-t bg-background">
         <form onSubmit={handleSendMessage} className="flex gap-2">

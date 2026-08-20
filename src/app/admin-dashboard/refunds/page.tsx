@@ -74,16 +74,27 @@ export default function AdminRefundsPage() {
     loadingSetter(true);
 
     try {
+      // P0 FIX (war room): JOIN profiles on buyer_id to populate buyer_name.
+      // See seller-dashboard/orders/page.tsx for the full rationale.
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          buyer:profiles!orders_buyer_id_fkey(email, full_name)
+        `)
         .eq('refund_status', 'requested')
         .order('created_at', { ascending: false })
         .range(pageToFetch * PAGE_SIZE, (pageToFetch + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
 
-      const refundList = (data || []).map(o => orderRowToDomain(o as OrderRow));
+      const refundList = (data || []).map((o: Record<string, unknown>) => {
+        const buyer = o.buyer as { email?: string; full_name?: string } | null;
+        return orderRowToDomain({
+          ...o,
+          buyer_name: buyer?.full_name ?? buyer?.email?.split('@')[0] ?? 'Unknown buyer',
+        } as OrderRow);
+      });
 
       setOrders(prev => pageToFetch > 0 ? [...prev, ...refundList] : refundList);
       setPage(pageToFetch);

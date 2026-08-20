@@ -167,8 +167,8 @@ export default function CheckoutPage() {
         ) : (
           <div className="text-center py-20 border-2 border-dashed rounded-3xl">
             <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-            <h3 className="text-xl font-bold">Ledger is Empty</h3>
-            <p className="text-muted-foreground mt-2">Add items to your cart to initiate a transaction session.</p>
+            <h3 className="text-xl font-bold">Your cart is empty</h3>
+            <p className="text-muted-foreground mt-2">Add items to your cart to start checkout.</p>
           </div>
         )}
       </div>

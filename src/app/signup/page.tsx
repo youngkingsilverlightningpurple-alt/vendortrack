@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { setupProfile } from "@/app/actions/auth-actions";
 import { Logo } from "@/components/logo";
 import { Loader2 } from "lucide-react";
 import { useSupabase } from "@/components/providers/supabase-provider";
@@ -75,15 +76,23 @@ export default function SignupPage() {
       return;
     }
 
-    const { error: pError } = await supabase
-      .from('profiles')
-      .update({ role: values.role, full_name: values.fullName })
-      .eq('id', authData.user.id);
+    // P0 FIX (war room): use a server action with service-role admin client
+    // to set the user's role. The previous implementation called
+    // `supabase.from('profiles').update({role})` directly from the client,
+    // which was blocked by the RLS `WITH CHECK` clause (role cannot be
+    // changed from its default 'buyer' value via the client-side client).
+    // The server action uses the service-role admin client which bypasses
+    // RLS, and validates that the userId matches the authenticated session.
+    const result = await setupProfile(authData.user.id, values.role, values.fullName);
 
-    if (pError) {
-       toast({ variant: "destructive", title: "Profile setup failed", description: pError.message });
+    if (!result.success) {
+       toast({ variant: "destructive", title: "Profile setup failed", description: result.error });
     } else {
+       // For sellers, route to seller-dashboard so they see the onboarding checklist.
+       // (Sellers start with seller_status='pending' — they can browse but cannot
+       // list products until an admin approves them.)
        router.push(values.role === 'seller' ? '/seller-dashboard' : '/buyer-orders');
+       router.refresh();
     }
     setIsLoading(false);
   }

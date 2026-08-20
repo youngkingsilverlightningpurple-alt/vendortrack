@@ -48,17 +48,33 @@ export default function OrdersPage() {
     loadingSetter(true);
 
     try {
+      // P0 FIX (war room): JOIN profiles on buyer_id to populate buyer_name.
+      // The `orders` table does NOT have a `buyer_name` column — it was
+      // previously inserted by seed scripts and silently dropped by PostgREST.
+      // The fix is to JOIN `profiles!buyer_id(email, full_name)` and synthesize
+      // `buyer_name` from the joined profile data.
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          buyer:profiles!orders_buyer_id_fkey(email, full_name)
+        `)
         .eq('seller_id', user.id)
         .order('created_at', { ascending: false })
         .range(pageToFetch * PAGE_SIZE, (pageToFetch + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
 
-      const mappedOrders = (data || []).map(o => orderRowToDomain(o as OrderRow));
-      
+      // Synthesize buyer_name from the joined profile data so the existing
+      // orderRowToDomain mapper continues to work without modification.
+      const mappedOrders = (data || []).map((o: Record<string, unknown>) => {
+        const buyer = o.buyer as { email?: string; full_name?: string } | null;
+        return orderRowToDomain({
+          ...o,
+          buyer_name: buyer?.full_name ?? buyer?.email?.split('@')[0] ?? 'Unknown buyer',
+        } as OrderRow);
+      });
+
       setOrders(prev => pageToFetch > 0 ? [...prev, ...mappedOrders] : mappedOrders);
       setPage(pageToFetch);
 
@@ -66,7 +82,7 @@ export default function OrdersPage() {
         setHasMore(false);
       }
     } catch (error: unknown) {
-      log.error("Error fetching ledger entries:", undefined, error);
+      log.error("Error fetching orders:", undefined, error);
     } finally {
       loadingSetter(false);
     }
@@ -94,10 +110,10 @@ export default function OrdersPage() {
     <AuthenticatedLayout>
       <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Transactional Ledger</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Orders</h1>
           <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 border border-green-100 rounded-full text-[10px] font-bold uppercase tracking-widest">
             <ShieldCheck className="h-3 w-3" />
-            Audit Ready
+            All Orders
           </div>
         </div>
         <div className="grid gap-4">
@@ -122,7 +138,7 @@ export default function OrdersPage() {
                     <div className="mt-4 flex justify-center">
                       <Button onClick={handleLoadMore} disabled={isLoadingMore} variant="outline" size="sm">
                         {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Load Previous Records
+                        Load More
                       </Button>
                     </div>
                   )}

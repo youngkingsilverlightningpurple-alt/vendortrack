@@ -106,7 +106,7 @@ export function RefundRequestModal({ isOpen, onOpenChange, order }: RefundReques
 
         <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex gap-3 text-amber-800 text-sm mb-4">
             <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-            <p>Refunds are subject to review. Please ensure your reason is descriptive for the audit trail.</p>
+            <p>Refunds are subject to review. Please provide a clear reason for your refund request.</p>
         </div>
 
         <Form {...form}>

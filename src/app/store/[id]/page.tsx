@@ -25,6 +25,17 @@ export default function SellerStorefrontPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // P0 FIX (war room): real store performance metrics.
+  // Previous implementation hardcoded "Quality: Excellent" and "Response: Under 24h"
+  // for every seller, which is misleading and potentially false advertising.
+  // Real metrics computed from orders + products:
+  //   - Active Listings: count of active products
+  //   - Fulfillment Rate: % of fulfillable orders that are delivered
+  const [storeStats, setStoreStats] = useState<{ activeListings: number; fulfillmentRate: number; totalOrders: number }>({
+    activeListings: 0,
+    fulfillmentRate: 0,
+    totalOrders: 0,
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -45,6 +56,33 @@ export default function SellerStorefrontPage() {
 
         if (prodRes.data) {
           setProducts(prodRes.data.map(p => productRowToDomain(p as ProductRow)));
+        }
+
+        // Fetch seller's orders to compute real performance metrics
+        const { data: sellerOrders } = await supabase
+          .from('orders')
+          .select('status')
+          .eq('seller_id', id);
+
+        if (sellerOrders) {
+          const fulfillable = sellerOrders.filter((o: { status: string }) =>
+            o.status === 'delivered' || o.status === 'shipped' || o.status === 'pending'
+          );
+          const delivered = sellerOrders.filter((o: { status: string }) => o.status === 'delivered').length;
+          const fulfillmentRate = fulfillable.length > 0
+            ? Math.round((delivered / fulfillable.length) * 100)
+            : 0;
+          setStoreStats({
+            activeListings: prodRes.data?.length ?? 0,
+            fulfillmentRate,
+            totalOrders: sellerOrders.length,
+          });
+        } else {
+          setStoreStats({
+            activeListings: prodRes.data?.length ?? 0,
+            fulfillmentRate: 0,
+            totalOrders: 0,
+          });
         }
       } catch (error: unknown) {
         log.error("Storefront error:", undefined, error);
@@ -96,8 +134,9 @@ export default function SellerStorefrontPage() {
             <Card><CardContent className="p-6 space-y-4">
               <h3 className="font-bold text-lg">Store Performance</h3>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between"><span>Quality</span><span className="text-primary font-medium">Excellent</span></div>
-                <div className="flex justify-between"><span>Response</span><span className="font-medium">Under 24h</span></div>
+                <div className="flex justify-between"><span>Active Listings</span><span className="text-primary font-medium">{storeStats.activeListings}</span></div>
+                <div className="flex justify-between"><span>Total Orders</span><span className="font-medium">{storeStats.totalOrders}</span></div>
+                <div className="flex justify-between"><span>Fulfillment Rate</span><span className="font-medium">{storeStats.fulfillmentRate}%</span></div>
               </div>
             </CardContent></Card>
           </aside>
